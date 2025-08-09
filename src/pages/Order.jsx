@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useMemo } from 'react';
 import {
     Box, Typography, Button, Grid, TextField, Select, MenuItem, Paper
@@ -50,6 +51,14 @@ const customStyles = `
 }
 .hover\\:animate-shake:hover {
     animation: shake 0.5s ease-in-out;
+}
+/* Utility to hide scrollbars on elements */
+.no-scrollbar::-webkit-scrollbar {
+    display: none; /* for Chrome, Safari, and Opera */
+}
+.no-scrollbar {
+    -ms-overflow-style: none; /* for IE and Edge */
+    scrollbar-width: none; /* for Firefox */
 }
 `;
 
@@ -567,7 +576,7 @@ export default function Order() {
                 </Grid>
 
                 {/* Table */}
-                <div className="overflow-x-auto rounded-2xl shadow-lg bg-white/40 backdrop-blur-lg border border-gray-200">
+                <div className="overflow-x-auto no-scrollbar rounded-2xl shadow-lg bg-white/40 backdrop-blur-lg border border-gray-200">
                     <table className="min-w-full divide-y divide-gray-200 table-fixed">
                         <thead className="sticky top-0 bg-white/80 backdrop-blur-md">
                             <tr>
@@ -743,6 +752,4 @@ export default function Order() {
                 </AnimatePresence>
             </motion.section>
         </Paper>
-    );
-}
-
+    );}

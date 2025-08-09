@@ -63,7 +63,8 @@ export default function App() {
           activeMenuItem={activeMenuItem}
           handleLogout={handleLogout}
         />
-        <MainContent activeMenuItem={activeMenuItem} />
+        <MainContent activeMenuItem={activeMenuItem} 
+        setActiveMenuItem={setActiveMenuItem}/>
       </div>
     </div>
   );
