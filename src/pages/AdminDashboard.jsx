@@ -1,198 +1,325 @@
-import React, { useState, useEffect } from 'react';
-import { Bar, Line } from 'react-chartjs-2';
-import { motion } from 'framer-motion';
+import React, { useEffect, useState } from "react";
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  Title,
+  Users,
+  ShoppingBag,
+  DollarSign,
+  Building2,
+  Ticket,
+  ShieldCheck,
+  ShoppingCart,
+  Tags,
+  XCircle,
+  RefreshCcw,
+  User,
+  Package,
+} from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
   Tooltip,
   Legend,
-} from 'chart.js';
+} from "recharts";
 
-// Register Chart.js components.
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
+// Simple Card & CardContent components for a consistent design.
+const Card = ({ children, className }) => (
+  <motion.div
+    className={`rounded-2xl shadow-lg bg-white p-6 transition-all duration-300 transform hover:scale-105 ${className || ""}`}
+  >
+    {children}
+  </motion.div>
 );
 
-// --- Reusable Stat Card Component (Minimalist design, but now clickable) ---
-const StatCard = ({ title, value, loading, onClick }) => {
+const StatCard = ({ title, value, icon: Icon, color }) => (
+  <Card className="flex flex-col items-start">
+    <div className={`p-3 rounded-full mb-3 shadow-md`} style={{ backgroundColor: `${color}1A`, color: color }}>
+      <Icon className="w-8 h-8" />
+    </div>
+    <p className="text-gray-500 font-semibold text-sm uppercase">{title}</p>
+    <h2 className="text-3xl font-bold mt-1" style={{ color: color }}>{value}</h2>
+  </Card>
+);
+
+const TabButton = ({ title, active, onClick }) => (
+  <button
+    className={`px-6 py-3 text-lg font-semibold rounded-t-xl transition-colors duration-200
+      ${active
+        ? "bg-white text-indigo-600 border-b-2 border-indigo-600 shadow-t-md"
+        : "bg-gray-100 text-gray-600 hover:text-indigo-500"
+      }`}
+    onClick={onClick}
+  >
+    {title}
+  </button>
+);
+
+// Constants for styling
+const API_BASE_URL = 'http://localhost:5000/api';
+const COLORS = ["#4D8BFF", "#2EBE77", "#FFB63D", "#FF6B6B", "#8B6BFF", "#2ECBE7"];
+
+export default function AdminDashboard() {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState("overview");
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/admin/dashboard`);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        // Placeholder data for today's metrics until backend is updated.
+        // Replace with actual data once available from the API.
+        setStats({
+          ...data,
+          todayRegisteredCustomers: 15,
+          todayRegisteredSellers: 3,
+          todayOrders: 7,
+        });
+        setError(null);
+      } catch (e) {
+        console.error('Failed to fetch dashboard data:', e);
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
   if (loading) {
     return (
-      <div className="bg-white p-6 rounded-xl shadow-sm animate-pulse">
-        <div className="h-5 bg-gray-200 rounded w-3/4 mb-3"></div>
-        <div className="h-9 bg-gray-200 rounded w-1/2"></div>
+      <div className="flex flex-col justify-center items-center min-h-screen bg-gray-50">
+        <RefreshCcw className="animate-spin text-indigo-500" size={48} />
+        <span className="ml-4 text-xl font-semibold text-gray-600">Loading dashboard...</span>
       </div>
     );
   }
 
-  return (
-    <button
-      onClick={onClick}
-      className="w-full text-left bg-white p-6 rounded-xl shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1"
-    >
-      <p className="text-sm font-medium text-gray-500">{title}</p>
-      <p className="text-4xl font-bold text-gray-800 mt-2">{value.toLocaleString()}</p>
-    </button>
-  );
-};
+  if (error) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-screen bg-gray-50 text-center p-4">
+        <XCircle size={48} className="text-red-500 mb-4" />
+        <p className="text-xl font-semibold text-red-600">Error: {error}</p>
+        <p className="text-sm text-gray-500 mt-2">
+          Please ensure your backend server is running and accessible.
+        </p>
+      </div>
+    );
+  }
 
-// --- Reusable Chart Container (Matches the blue-top-border design) ---
-const ChartContainer = ({ title, loading, children }) => (
-  <div className="bg-white p-6 rounded-xl shadow-sm border-t-4 border-blue-600">
-    <h3 className="text-lg font-semibold text-gray-700 mb-4">{title}</h3>
-    <div className="h-80 relative">
-      {loading ? (
-        <div className="w-full h-full bg-gray-200 rounded-md animate-pulse"></div>
-      ) : (
-        children
-      )}
-    </div>
-  </div>
-);
+  if (!stats) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-screen bg-gray-50 text-center p-4">
+        <XCircle size={48} className="text-gray-500 mb-4" />
+        <p className="text-xl font-semibold text-gray-600">No data available.</p>
+      </div>
+    );
+  }
 
-// --- Framer Motion Animation Variants ---
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.08, delayChildren: 0.2 },
-  },
-};
-
-const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: { y: 0, opacity: 1 },
-};
-
-// --- Main AdminDashboard Component ---
-export default function AdminDashboard({ setActiveMenuItem }) { // Assuming this prop is passed for navigation
-  const [stats, setStats] = useState({});
-  const [chartData, setChartData] = useState({});
-  const [loading, setLoading] = useState(true);
-
-  // Simulate fetching data on component mount
-  useEffect(() => {
-    const fetchData = () => {
-      setTimeout(() => {
-        // --- Full KPI Card Data ---
-        setStats({
-          buyers: 8430,
-          sellers: 1250,
-          smes: 412,
-          fpos: 85,
-          orders: 22456,
-          products: 45200,
-          dailyTickets: 15,
-        });
-
-        // --- All Chart Data ---
-        setChartData({
-          userGrowth: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-            datasets: [{ label: 'Users', data: [6500, 6900, 7100, 7500, 8000, 8430], borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4 }],
-          },
-          orderVolume: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-            datasets: [{ label: 'Orders', data: [2100, 2800, 3500, 3200, 4100, 5200], backgroundColor: '#f97316' }],
-          },
-          entityDistribution: {
-            labels: ['SME', 'FPO'],
-            datasets: [{ label: 'Entity Count', data: [412, 85], backgroundColor: ['#8b5cf6', '#ec4899'] }],
-          },
-          ticketTrends: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            datasets: [{ label: 'New Tickets', data: [12, 19, 8, 15, 22, 14, 10], borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.2)', fill: true, tension: 0.4 }],
-          },
-        });
-
-        setLoading(false);
-      }, 1500);
-    };
-
-    fetchData();
-  }, []);
-
-  // Full data array for mapping over the StatCards
-  const kpiCards = [
-    { title: 'Total Buyers', value: stats.buyers, linkTo: 'Customers' },
-    { title: 'Total Sellers', value: stats.sellers, linkTo: 'SME' }, // Assuming SME is the main seller page
-    { title: 'Total SMEs', value: stats.smes, linkTo: 'SME' },
-    { title: 'Total FPOs', value: stats.fpos, linkTo: 'FPO' },
-    { title: 'Total Orders', value: stats.orders, linkTo: 'Orders' },
-    { title: 'Total Products', value: stats.products, linkTo: 'Orders' }, // Placeholder link
-    { title: 'Daily Tickets', value: stats.dailyTickets, linkTo: 'Buyer Support' },
+  // Data preparation for charts.
+  const pieChartData = [
+    { name: "FPOs", value: stats.totalFPOs, color: COLORS[0] },
+    { name: "SMEs", value: stats.totalSMEs, color: COLORS[1] },
   ];
 
-  // Common options for the charts
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true, grid: { drawBorder: false } }, x: { grid: { display: false } } },
-  };
+  const userChartData = [
+    { name: "Total Users", count: stats.totalUsers, color: "#8884d8" },
+    { name: "Sellers", count: stats.totalSellers, color: "#82ca9d" },
+    { name: "Admins", count: stats.totalAdminUsers, color: "#ffc658" },
+    { name: "Buyers", count: stats.totalBuyers, color: "#f78693" },
+  ];
+
+  const productActivityData = [
+    { name: "Products", count: stats.totalProducts, color: "#4B0082" },
+    { name: "Orders", count: stats.totalOrders, color: "#B22222" },
+    { name: "Carts", count: stats.totalCarts, color: "#228B22" },
+    { name: "Tickets", count: stats.totalBuyerSupportTickets, color: "#FFD700" },
+  ];
+
+  // The dailyStatsData is no longer needed for the bar chart.
+  // We will now use it to populate the new table.
+  const dailyStatsData = [
+    { name: "New Customers", value: stats.todayRegisteredCustomers, icon: User, color: "#3B82F6" },
+    { name: "New Sellers", value: stats.todayRegisteredSellers, icon: Building2, color: "#F59E0B" },
+    { name: "New Orders", value: stats.todayOrders, icon: Package, color: "#14B8A6" },
+  ];
 
   return (
-    <div className="bg-gray-50 min-h-full p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen p-8 bg-gray-50 font-sans">
       <motion.div
-        className="max-w-7xl mx-auto space-y-8"
-        initial="hidden"
-        animate="visible"
-        variants={containerVariants}
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-7xl mx-auto"
       >
-        <motion.header variants={itemVariants}>
-          <h1 className="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
-          <p className="text-gray-500 mt-1">Real-time business overview and performance metrics.</p>
-        </motion.header>
+        {/* <h1 className="text-4xl font-extrabold text-gray-800 text-center mb-8">
+          Admin Dashboard
+        </h1> */}
 
-        {/* --- KPI Cards Section (Using a responsive grid to prevent overflow) --- */}
-        <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6"
-          variants={containerVariants}
-        >
-          {kpiCards.map((card, index) => (
-            <motion.div key={index} variants={itemVariants}>
-              <StatCard {...card} loading={loading} onClick={() => setActiveMenuItem ? setActiveMenuItem(card.linkTo) : null} />
-            </motion.div>
-          ))}
-        </motion.div>
+        {/* Tab Navigation */}
+        <div className="flex justify-center mb-8">
+          <TabButton
+            title="Overview"
+            active={activeTab === "overview"}
+            onClick={() => setActiveTab("overview")}
+          />
+          <TabButton
+            title="Analytics"
+            active={activeTab === "analytics"}
+            onClick={() => setActiveTab("analytics")}
+          />
+        </div>
 
-        {/* --- Charts Section --- */}
-        <motion.div
-          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-          variants={containerVariants}
-        >
-          <motion.div variants={itemVariants}>
-            <ChartContainer title="User Growth Trends" loading={loading}>
-              {chartData.userGrowth && <Line options={chartOptions} data={chartData.userGrowth} />}
-            </ChartContainer>
+        {/* Overview Tab Content */}
+        {activeTab === "overview" && (
+          <motion.div
+            key="overview"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-8"
+          >
+            {/* Main Stats Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {/* <StatCard title="Total Users" value={stats.totalUsers} icon={Users} color="#10B981" /> */}
+              <StatCard title="Total Customers" value={stats.totalCustomers} icon={Users} color="#3B82F6" />
+              <StatCard title="Total Sellers" value={stats.totalSellers} icon={Building2} color="#F59E0B" />
+              <StatCard title="Total FPOs" value={stats.totalFPOs} icon={Building2} color="#06B6D4" />
+              <StatCard title="Total SMEs" value={stats.totalSMEs} icon={Building2} color="#EF4444" />
+              <StatCard title="Total Admin Users" value={stats.totalAdminUsers} icon={ShieldCheck} color="#8B5CF6" />
+              <StatCard title="Total Products" value={stats.totalProducts} icon={ShoppingBag} color="#14B8A6" />
+              <StatCard title="Total Orders" value={stats.totalOrders} icon={DollarSign} color="#F97316" />
+              <StatCard title="Total Carts" value={stats.totalCarts} icon={ShoppingCart} color="#60A5FA" />
+              <StatCard title="Total Categories" value={stats.totalCategories} icon={Tags} color="#C084FC" />
+              <StatCard title="Total Support Tickets" value={stats.totalBuyerSupportTickets} icon={Ticket} color="#EAB308" />
+            </div>
+
+            {/* Today's Metrics Table */}
+            <div className="bg-white p-8 rounded-2xl shadow-xl">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">Daily Overview</h2>
+              <div className="overflow-x-auto">
+                <table className="min-w-full table-auto">
+                  <thead>
+                    <tr className="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                      <th className="py-3 px-6 text-left">Metric</th>
+                      <th className="py-3 px-6 text-left">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-gray-600 text-sm font-light">
+                    {/* Map through the dailyStatsData to create table rows dynamically */}
+                    {dailyStatsData.map((stat, index) => (
+                      <tr
+                        key={index}
+                        className="border-b border-gray-200 hover:bg-gray-50"
+                      >
+                        <td className="py-4 px-6 text-left whitespace-nowrap">
+                          <div className="flex items-center">
+                            <span
+                              className={`p-2 rounded-full mr-3`}
+                              style={{ backgroundColor: `${stat.color}1A`, color: stat.color }}
+                            >
+                              <stat.icon className="w-5 h-5" />
+                            </span>
+                            <span className="font-semibold text-gray-700">
+                              {stat.name}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-left font-bold text-lg">
+                          {stat.value}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </motion.div>
-          <motion.div variants={itemVariants}>
-            <ChartContainer title="Monthly Order Volume" loading={loading}>
-              {chartData.orderVolume && <Bar options={chartOptions} data={chartData.orderVolume} />}
-            </ChartContainer>
+        )}
+
+        {/* Analytics Tab Content */}
+        {activeTab === "analytics" && (
+          <motion.div
+            key="analytics"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-8"
+          >
+            {/* Pie Chart: FPO vs SME Breakdown */}
+            <Card className="flex flex-col items-center p-8">
+              <h2 className="text-xl font-bold text-gray-700 mb-4">FPO vs SME Breakdown</h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={pieChartData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    label
+                  >
+                    {pieChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </Card>
+
+            {/* Bar Chart: User Types */}
+            <Card className="flex flex-col items-center p-8">
+              <h2 className="text-xl font-bold text-gray-700 mb-4">User Type Distribution</h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={userChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="count">
+                    {userChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+
+            {/* Bar Chart: Platform Activity */}
+            <Card className="flex flex-col items-center p-8 lg:col-span-2">
+              <h2 className="text-xl font-bold text-gray-700 mb-4">Platform Activity</h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={productActivityData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="count">
+                    {productActivityData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
           </motion.div>
-          <motion.div variants={itemVariants}>
-            <ChartContainer title="FPO vs SME Distribution" loading={loading}>
-                {chartData.entityDistribution && <Bar options={{ ...chartOptions, indexAxis: 'y' }} data={chartData.entityDistribution} />}
-            </ChartContainer>
-          </motion.div>
-          <motion.div variants={itemVariants}>
-            <ChartContainer title="Daily Support Tickets" loading={loading}>
-                {chartData.ticketTrends && <Line options={chartOptions} data={chartData.ticketTrends} />}
-            </ChartContainer>
-          </motion.div>
-        </motion.div>
+        )}
       </motion.div>
     </div>
   );

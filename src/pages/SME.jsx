@@ -1,428 +1,504 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  BriefcaseBusiness,
-  Mail,
-  Smartphone,
-  MapPin,
-  FileText,
-  CheckCircle2,
-  Hourglass,
-  XCircle,
-  PlusCircle,
-  Search,
-  Filter,
-  Download,
-  Eye,
-  X,
+    BriefcaseBusiness,
+    Mail,
+    Smartphone,
+    MapPin,
+    FileText,
+    CheckCircle2,
+    Hourglass,
+    XCircle,
+    PlusCircle,
+    Search,
+    Filter,
+    Download,
+    Eye,
+    X,
+    RefreshCcw,
 } from 'lucide-react';
+
+// You can configure this to your backend server
+const API_BASE_URL = 'http://localhost:5000/api';
 
 // --- Helper function to get status styling ---
 const getStatusInfo = (status) => {
-  switch (status) {
-    case 'new':
-      return { color: 'bg-blue-100', text: 'text-blue-700', icon: PlusCircle };
-    case 'pending':
-      return { color: 'bg-yellow-100', text: 'text-yellow-700', icon: Hourglass };
-    case 'approved':
-      return { color: 'bg-green-100', text: 'text-green-700', icon: CheckCircle2 };
-    case 'rejected':
-      return { color: 'bg-red-100', text: 'text-red-700', icon: XCircle };
-    default:
-      return { color: 'bg-gray-100', text: 'text-gray-700', icon: null };
-  }
+    switch (status) {
+        case 'new':
+            return { color: 'bg-blue-100', text: 'text-blue-700', icon: PlusCircle };
+        case 'pending':
+            return { color: 'bg-yellow-100', text: 'text-yellow-700', icon: Hourglass };
+        case 'approved':
+            return { color: 'bg-green-100', text: 'text-green-700', icon: CheckCircle2 };
+        case 'rejected':
+            return { color: 'bg-red-100', text: 'text-red-700', icon: XCircle };
+        default:
+            return { color: 'bg-gray-100', text: 'text-gray-700', icon: null };
+    }
+};
+
+// --- Custom Confirmation Modal ---
+const ConfirmationModal = ({ message, onConfirm, onCancel }) => {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900 bg-opacity-75">
+            <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full space-y-4">
+                <p className="text-lg font-semibold text-center">{message}</p>
+                <div className="flex justify-center gap-4">
+                    <button
+                        onClick={onCancel}
+                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 // --- Modal component for displaying full SME details ---
-const SMEModal = ({ sme, onClose }) => {
-  const statusInfo = getStatusInfo(sme.sellerStatus);
-  const StatusIcon = statusInfo.icon;
+const SMEModal = ({ sme, onClose, onUpdateStatus }) => {
+    const statusInfo = getStatusInfo(sme.sellerStatus);
+    const StatusIcon = statusInfo.icon;
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [nextStatus, setNextStatus] = useState(null);
 
-  const handleViewDocument = (docName) => {
-    // In a real application, you would implement logic here to open a PDF viewer or download the file.
-    // For this example, we'll use a simple alert replacement.
-    window.alert(`Simulating viewing document: ${docName}`);
-  };
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleDateString();
+    };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
-  };
+    const handleUpdateClick = (newStatus) => {
+        setNextStatus(newStatus);
+        setShowConfirm(true);
+    };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900 bg-opacity-75 overflow-y-auto">
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 md:p-8 space-y-6">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <X size={24} />
-        </button>
-        <h2 className="text-3xl font-extrabold text-gray-900 border-b pb-4">
-          {sme.companyName}
-        </h2>
-        
-        {/* Status section */}
-        <div className="flex items-center space-x-2">
-          <span className="font-semibold text-gray-700">Status:</span>
-          <span className={`px-3 py-1 rounded-full font-bold text-xs flex items-center space-x-1 ${statusInfo.color} ${statusInfo.text}`}>
-            {StatusIcon && <StatusIcon size={14} />}
-            <span>{sme.sellerStatus.toUpperCase()}</span>
-          </span>
-        </div>
+    const handleConfirmUpdate = () => {
+        onUpdateStatus(sme._id, nextStatus);
+        setShowConfirm(false);
+    };
 
-        {/* Details Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-          <p className="flex items-center space-x-2">
-            <BriefcaseBusiness size={16} className="text-gray-500" />
-            <span className="font-semibold">Seller:</span>
-            <span>{sme.sellerName}</span>
-          </p>
-          <p className="flex items-center space-x-2">
-            <Mail size={16} className="text-gray-500" />
-            <span className="font-semibold">Email:</span>
-            <span>{sme.email}</span>
-          </p>
-          <p className="flex items-center space-x-2">
-            <Smartphone size={16} className="text-gray-500" />
-            <span className="font-semibold">Mobile:</span>
-            <span>{sme.mobile}</span>
-          </p>
-          <p className="flex items-center space-x-2">
-            <MapPin size={16} className="text-gray-500" />
-            <span className="font-semibold">Address:</span>
-            <span>{sme.address.street}, {sme.address.city}, {sme.address.state} - {sme.address.pincode}</span>
-          </p>
-          <p className="col-span-1 sm:col-span-2">
-            <span className="font-semibold">Business Description:</span>
-            <p className="text-gray-600 mt-1">{sme.businessDescription || 'Not provided'}</p>
-          </p>
-          <p className="flex items-center space-x-2">
-            <span className="font-semibold">Date of Establishment:</span>
-            <span>{formatDate(sme.dateOfEstablishment)}</span>
-          </p>
-        </div>
+    const fileFields = [
+        { key: 'userPhoto', label: 'User Photo' },
+        { key: 'shopPhoto', label: 'Shop Photo' },
+        { key: 'companyRegistrationDoc', label: 'Company Registration' },
+        { key: 'gstCertificate', label: 'GST Certificate' },
+        { key: 'bankDetailsDoc', label: 'Bank Details' },
+        { key: 'idProofDoc', label: 'ID Proof' },
+    ];
 
-        {/* Documents Section */}
-        <div className="space-y-3">
-          <h3 className="text-xl font-bold text-gray-800 border-t pt-4">Documents</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {Object.keys(sme).filter(key => key.includes('Doc') || key.includes('Photo')).map(docKey => (
-              <button
-                key={docKey}
-                onClick={() => handleViewDocument(docKey)}
-                className="flex flex-col items-center justify-center p-4 bg-gray-100 rounded-xl shadow-inner hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!sme[docKey]}
-              >
-                <FileText size={24} className="text-gray-500" />
-                <span className="mt-2 text-sm text-center">{docKey.replace(/([A-Z])/g, ' $1').trim()}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    return (
+        <>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900 bg-opacity-75 overflow-y-auto">
+                <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 md:p-8 space-y-6">
+                    <button
+                        onClick={onClose}
+                        className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                        <X size={24} />
+                    </button>
+                    <h2 className="text-3xl font-extrabold text-gray-900 border-b pb-4">
+                        {sme.companyName}
+                    </h2>
+
+                    {/* Status section */}
+                    <div className="flex items-center space-x-2">
+                        <span className="font-semibold text-gray-700">Current Status:</span>
+                        <span className={`px-3 py-1 rounded-full font-bold text-xs flex items-center space-x-1 ${statusInfo.color} ${statusInfo.text}`}>
+                            {StatusIcon && <StatusIcon size={14} />}
+                            <span>{sme.sellerStatus.toUpperCase()}</span>
+                        </span>
+                    </div>
+
+                    {/* Status Update Buttons */}
+                    <div className="flex flex-wrap gap-2">
+                        {['new', 'pending', 'approved', 'rejected'].map(status => (
+                            <button
+                                key={status}
+                                onClick={() => handleUpdateClick(status)}
+                                className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors
+                                    ${sme.sellerStatus === status
+                                        ? 'bg-gray-300 text-gray-800 cursor-not-allowed'
+                                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                                    }`}
+                                disabled={sme.sellerStatus === status}
+                            >
+                                Set to {status.charAt(0).toUpperCase() + status.slice(1)}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Details Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                        <p className="flex items-center space-x-2">
+                            <BriefcaseBusiness size={16} className="text-gray-500" />
+                            <span className="font-semibold">Seller:</span>
+                            <span>{sme.sellerName}</span>
+                        </p>
+                        <p className="flex items-center space-x-2">
+                            <Mail size={16} className="text-gray-500" />
+                            <span className="font-semibold">Email:</span>
+                            <span>{sme.email}</span>
+                        </p>
+                        <p className="flex items-center space-x-2">
+                            <Smartphone size={16} className="text-gray-500" />
+                            <span className="font-semibold">Mobile:</span>
+                            <span>{sme.mobile}</span>
+                        </p>
+                        <p className="flex items-center space-x-2">
+                            <MapPin size={16} className="text-gray-500" />
+                            <span className="font-semibold">Address:</span>
+                            <span>{sme.address.street}, {sme.address.city}, {sme.address.state} - {sme.address.pincode}</span>
+                        </p>
+                        <p className="col-span-1 sm:col-span-2">
+                            <span className="font-semibold">Business Description:</span>
+                            <p className="text-gray-600 mt-1">{sme.businessDescription || 'Not provided'}</p>
+                        </p>
+                        <p className="flex items-center space-x-2">
+                            <span className="font-semibold">Date of Establishment:</span>
+                            <span>{formatDate(sme.dateOfEstablishment)}</span>
+                        </p>
+                    </div>
+
+                    {/* Documents Section */}
+                    <div className="space-y-3">
+                        <h3 className="text-xl font-bold text-gray-800 border-t pt-4">Documents</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            {fileFields.map(field => (
+                                <a
+                                    key={field.key}
+                                    href={sme[field.key]}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`flex flex-col items-center justify-center p-4 rounded-xl shadow-inner transition-colors
+                                        ${sme[field.key]
+                                            ? 'bg-gray-100 hover:bg-gray-200'
+                                            : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                                        }`}
+                                    disabled={!sme[field.key]}
+                                >
+                                    <FileText size={24} className="text-gray-500" />
+                                    <span className="mt-2 text-sm text-center font-medium">{field.label}</span>
+                                    {!sme[field.key] && (
+                                        <span className="text-xs text-red-500 mt-1">Not Uploaded</span>
+                                    )}
+                                </a>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {showConfirm && (
+                <ConfirmationModal
+                    message={`Are you sure you want to change the status to '${nextStatus}'?`}
+                    onConfirm={handleConfirmUpdate}
+                    onCancel={() => setShowConfirm(false)}
+                />
+            )}
+        </>
+    );
 };
 
 
 // --- Main SME Dashboard Component ---
 export default function SME() {
-  const initialSMEs = [
-    {
-      "_id": { "$oid": "68936d82b0c04bffbb47e038" },
-      "email": "k@gmail.com",
-      "companyName": "Cropzap",
-      "sellerName": "Kavin",
-      "mobile": "7598287008",
-      "alternateMobile": null,
-      "dateOfEstablishment": null,
-      "businessDescription": "",
-      "address": { "street": "test", "city": "test", "state": "test", "pincode": "744563" },
-      "businessType": "SME",
-      "sellerStatus": "new",
-      "userPhoto": null,
-      "shopPhoto": null,
-      "companyRegistrationDoc": null,
-      "gstCertificate": null,
-      "bankDetailsDoc": null,
-      "idProofDoc": null,
-      "createdAt": { "$date": "2025-08-06T14:58:10.660Z" },
-      "updatedAt": { "$date": "2025-08-06T14:58:10.662Z" },
-      "__v": 0
-    },
-    {
-      "_id": { "$oid": "68936e93b0c04bffbb47e045" },
-      "email": "sarah.jones@example.com",
-      "companyName": "Green Harvest Co.",
-      "sellerName": "Sarah Jones",
-      "mobile": "9876543210",
-      "alternateMobile": null,
-      "dateOfEstablishment": "2023-01-15",
-      "businessDescription": "Specializing in organic produce and local goods.",
-      "address": { "street": "456 Oak Ave", "city": "Springfield", "state": "IL", "pincode": "62704" },
-      "businessType": "SME",
-      "sellerStatus": "pending",
-      "userPhoto": null,
-      "shopPhoto": null,
-      "companyRegistrationDoc": "green_harvest_co.pdf", // dummy data to show view button
-      "gstCertificate": "gst-cert-ghc.pdf",
-      "bankDetailsDoc": "bank-details-ghc.pdf",
-      "idProofDoc": "sarah_jones_id.pdf",
-      "createdAt": { "$date": "2025-08-01T10:00:00.000Z" },
-      "updatedAt": { "$date": "2025-08-02T11:30:00.000Z" },
-      "__v": 0
-    },
-    {
-      "_id": { "$oid": "68936d82b0c04bffbb47e039" },
-      "email": "john.doe@example.com",
-      "companyName": "AgriTech Solutions",
-      "sellerName": "John Doe",
-      "mobile": "9998887776",
-      "alternateMobile": "9998887777",
-      "dateOfEstablishment": "2020-05-20",
-      "businessDescription": "Providing technological solutions for modern agriculture.",
-      "address": { "street": "101 Tech Park", "city": "Bangalore", "state": "Karnataka", "pincode": "560001" },
-      "businessType": "SME",
-      "sellerStatus": "approved",
-      "userPhoto": null,
-      "shopPhoto": null,
-      "companyRegistrationDoc": "agritech_reg.pdf",
-      "gstCertificate": "agritech_gst.pdf",
-      "bankDetailsDoc": null,
-      "idProofDoc": "john_doe_id.pdf",
-      "createdAt": { "$date": "2025-07-15T10:00:00.000Z" },
-      "updatedAt": { "$date": "2025-07-20T11:30:00.000Z" },
-      "__v": 0
-    },
-    {
-      "_id": { "$oid": "68936d82b0c04bffbb47e040" },
-      "email": "jane.smith@example.com",
-      "companyName": "Organic Foods Inc.",
-      "sellerName": "Jane Smith",
-      "mobile": "8887776665",
-      "alternateMobile": null,
-      "dateOfEstablishment": "2022-11-10",
-      "businessDescription": "Supplier of certified organic food products to retailers.",
-      "address": { "street": "200 Green Lane", "city": "Pune", "state": "Maharashtra", "pincode": "411001" },
-      "businessType": "SME",
-      "sellerStatus": "rejected",
-      "userPhoto": null,
-      "shopPhoto": null,
-      "companyRegistrationDoc": "organic_foods_reg.pdf",
-      "gstCertificate": null,
-      "bankDetailsDoc": "organic_foods_bank.pdf",
-      "idProofDoc": "jane_smith_id.pdf",
-      "createdAt": { "$date": "2025-06-01T14:00:00.000Z" },
-      "updatedAt": { "$date": "2025-06-05T15:00:00.000Z" },
-      "__v": 0
-    }
-  ];
+    const [smes, setSmes] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [selectedSME, setSelectedSME] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const [smes, setSmes] = useState(initialSMEs);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [selectedSME, setSelectedSME] = useState(null);
+    /**
+     * Fetches the SME data from the backend API.
+     * Includes robust error handling.
+     */
+    const fetchSMEs = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const token = localStorage.getItem('authToken');
+            console.log('Token retrieved from localStorage:', token);
 
-  // --- Functions for data management ---
-  const handleStatusChange = (smeId, newStatus) => {
-    setSmes(
-      smes.map((sme) =>
-        sme._id.$oid === smeId ? { ...sme, sellerStatus: newStatus } : sme
-      )
-    );
-  };
+            if (!token) {
+                throw new Error('No authentication token found. Please log in.');
+            }
 
-  const handleDownloadExcel = () => {
-    const dataToExport = filteredSmes.map(sme => ({
-      _id: sme._id.$oid,
-      companyName: sme.companyName,
-      sellerName: sme.sellerName,
-      email: sme.email,
-      mobile: sme.mobile,
-      sellerStatus: sme.sellerStatus,
-      address: `${sme.address.street}, ${sme.address.city}, ${sme.address.state} - ${sme.address.pincode}`,
-      // Add other fields you want to export
-    }));
+            const response = await fetch(`${API_BASE_URL}/sellerprofile/sme-admin`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-auth-token': token,
+                },
+            });
 
-    const csvRows = [];
-    // Get headers
-    const headers = Object.keys(dataToExport[0]);
-    csvRows.push(headers.join(','));
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
 
-    // Get data rows
-    for (const row of dataToExport) {
-      const values = headers.map(header => {
-        const escaped = ('' + row[header]).replace(/"/g, '""');
-        return `"${escaped}"`;
-      });
-      csvRows.push(values.join(','));
-    }
-
-    const csvString = csvRows.join('\n');
-    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'sme_data.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // --- Filtering and searching logic ---
-  const filteredSmes = useMemo(() => {
-    let filtered = smes;
-
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(sme => sme.sellerStatus === filterStatus);
-    }
-
-    if (searchTerm) {
-      filtered = filtered.filter(sme =>
-        sme.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        sme.sellerName.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    return filtered;
-  }, [smes, searchTerm, filterStatus]);
-
-
-  return (
-    <div className="p-6 md:p-8">
-      <h1 className="text-3xl font-extrabold text-gray-900 mb-6">SME Dashboard</h1>
-
-      {/* Filter and Search Bar */}
-      <div className="bg-white rounded-2xl shadow-md p-4 mb-6 flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
-        <div className="relative w-full sm:w-1/2">
-          <input
-            type="text"
-            placeholder="Search by company or seller name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-50 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
-          />
-          <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-        </div>
-        <div className="relative w-full sm:w-1/4">
-          <Filter size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-50 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
-          >
-            <option value="all">All Statuses</option>
-            <option value="new">New</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-        </div>
-        <button
-          onClick={handleDownloadExcel}
-          className="w-full sm:w-1/4 flex items-center justify-center space-x-2 bg-green-500 text-white font-semibold py-2 px-4 rounded-xl hover:bg-green-600 transition-colors"
-        >
-          <Download size={20} />
-          <span>Download Excel</span>
-        </button>
-      </div>
-
-      {/* Main SME List/Table */}
-      <div className="bg-white rounded-2xl shadow-md overflow-x-auto">
-        <div className="hidden lg:grid grid-cols-6 gap-4 p-4 font-bold text-gray-600 border-b-2">
-          <div className="col-span-2">Company Name</div>
-          <div>Seller Name</div>
-          <div>Email</div>
-          <div>Status</div>
-          <div>Actions</div>
-        </div>
-
-        {filteredSmes.length > 0 ? (
-          filteredSmes.map((sme) => {
-            const statusInfo = getStatusInfo(sme.sellerStatus);
-            const StatusIcon = statusInfo.icon;
-            return (
-              <div
-                key={sme._id.$oid}
-                className="grid grid-cols-1 lg:grid-cols-6 gap-4 p-4 border-b last:border-b-0 hover:bg-gray-50 transition-colors"
-              >
-                {/* Mobile view */}
-                <div className="lg:hidden space-y-2">
-                  <h3 className="text-lg font-bold text-gray-900">{sme.companyName}</h3>
-                  <div className="flex items-center text-sm">
-                    <BriefcaseBusiness size={16} className="mr-2 text-gray-500" />
-                    <span>{sme.sellerName}</span>
-                  </div>
-                  <div className="flex items-center text-sm">
-                    <Mail size={16} className="mr-2 text-gray-500" />
-                    <span>{sme.email}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full font-bold text-xs flex items-center space-x-1 ${statusInfo.color} ${statusInfo.text}`}>
-                      {StatusIcon && <StatusIcon size={14} />}
-                      <span>{sme.sellerStatus.toUpperCase()}</span>
-                    </span>
-                    <button
-                      onClick={() => setSelectedSME(sme)}
-                      className="flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-800 transition-colors"
-                    >
-                      <Eye size={16} />
-                      <span>View</span>
-                    </button>
-                  </div>
-                  <select
-                    value={sme.sellerStatus}
-                    onChange={(e) => handleStatusChange(sme._id.$oid, e.target.value)}
-                    className="mt-2 w-full p-2 border border-gray-300 rounded-xl text-sm"
-                  >
-                    <option value="new">New</option>
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                </div>
-                
-                {/* Desktop view */}
-                <div className="hidden lg:col-span-2 lg:flex lg:items-center text-sm font-semibold">{sme.companyName}</div>
-                <div className="hidden lg:flex lg:items-center text-sm text-gray-700">{sme.sellerName}</div>
-                <div className="hidden lg:flex lg:items-center text-sm text-gray-700">{sme.email}</div>
-                <div className="hidden lg:flex lg:items-center text-sm">
-                  <span className={`px-3 py-1 rounded-full font-bold text-xs flex items-center space-x-1 ${statusInfo.color} ${statusInfo.text}`}>
-                    {StatusIcon && <StatusIcon size={14} />}
-                    <span>{sme.sellerStatus.toUpperCase()}</span>
-                  </span>
-                </div>
-                <div className="hidden lg:flex lg:items-center lg:space-x-2">
-                  <select
-                    value={sme.sellerStatus}
-                    onChange={(e) => handleStatusChange(sme._id.$oid, e.target.value)}
-                    className="p-2 border border-gray-300 rounded-xl text-sm"
-                  >
-                    <option value="new">New</option>
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                  <button
-                    onClick={() => setSelectedSME(sme)}
-                    className="flex items-center space-x-1 text-blue-600 hover:text-blue-800 transition-colors"
-                  >
-                    <Eye size={16} />
-                    <span>View</span>
-                  </button>
-                </div>
-              </div>
+            const data = await response.json();
+            // FIX: Access the data directly, not through a 'smeProfiles' key.
+            // Your backend is likely returning the array directly.
+            setSmes(data || []);
+            
+        } catch (err) {
+            console.error('Error fetching SME data:', err);
+            setError(
+                `Failed to retrieve data. This might be due to an expired token, server error, or network issue. Details: ${err.message}`
             );
-          })
-        ) : (
-          <div className="p-4 text-center text-gray-500">
-            No SME users found with the current filters.
-          </div>
-        )}
-      </div>
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-      {/* Conditional rendering of the modal */}
-      {selectedSME && <SMEModal sme={selectedSME} onClose={() => setSelectedSME(null)} />}
-    </div>
-  );
+    /**
+     * Updates a seller's status via a PUT request to the backend.
+     */
+    const updateSMEStatus = useCallback(async (smeId, newStatus) => {
+        try {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                setError('Authentication token missing. Please log in.');
+                setSelectedSME(null);
+                return;
+            }
+
+            const response = await fetch(`${API_BASE_URL}/sellerprofile/update-status/${smeId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-auth-token': token,
+                },
+                body: JSON.stringify({ sellerStatus: newStatus }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to update status.');
+            }
+
+            const updatedProfile = await response.json();
+            setSmes(currentSmes => currentSmes.map(sme =>
+                sme._id === updatedProfile.sellerProfile._id ? updatedProfile.sellerProfile : sme
+            ));
+            setSelectedSME(null);
+        } catch (err) {
+            console.error("Error updating SME status:", err);
+            setError(`Error updating status: ${err.message}`);
+            setSelectedSME(null);
+        }
+    }, []);
+
+    // UseEffect hook to check authentication status
+    useEffect(() => {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            setIsAuthenticated(true);
+        } else {
+            setIsAuthenticated(false);
+            setLoading(false); // Stop loading if not authenticated
+        }
+    }, []);
+
+    // UseEffect hook for initial data fetch, dependent on authentication status
+    useEffect(() => {
+        if (isAuthenticated) {
+            fetchSMEs();
+        }
+    }, [isAuthenticated, fetchSMEs]);
+
+    // --- Filtering and searching logic using useMemo for performance ---
+    const filteredSmes = useMemo(() => {
+        let filtered = smes;
+
+        if (filterStatus !== 'all') {
+            filtered = filtered.filter(sme => sme.sellerStatus === filterStatus);
+        }
+
+        if (searchTerm) {
+            filtered = filtered.filter(sme =>
+                (sme.companyName && sme.companyName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (sme.sellerName && sme.sellerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (sme.email && sme.email.toLowerCase().includes(searchTerm.toLowerCase()))
+            );
+        }
+
+        return filtered;
+    }, [smes, searchTerm, filterStatus]);
+
+    const handleDownloadExcel = () => {
+        const dataToExport = filteredSmes.map(sme => ({
+            _id: sme._id,
+            companyName: sme.companyName,
+            sellerName: sme.sellerName,
+            email: sme.email,
+            mobile: sme.mobile,
+            sellerStatus: sme.sellerStatus,
+            address: `${sme.address.street}, ${sme.address.city}, ${sme.address.state} - ${sme.address.pincode}`,
+        }));
+
+        const csvRows = [];
+        if (dataToExport.length > 0) {
+            const headers = Object.keys(dataToExport[0]);
+            csvRows.push(headers.join(','));
+        }
+
+        for (const row of dataToExport) {
+            const values = Object.values(row).map(value => {
+                const escaped = ('' + value).replace(/"/g, '""');
+                return `"${escaped}"`;
+            });
+            csvRows.push(values.join(','));
+        }
+
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'sme_data.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-screen bg-gray-50">
+                <RefreshCcw className="animate-spin text-blue-500" size={48} />
+                <span className="ml-4 text-xl font-semibold text-gray-600">Loading SME data...</span>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex flex-col justify-center items-center h-screen bg-gray-50 text-center p-4">
+                <XCircle size={48} className="text-red-500 mb-4" />
+                <p className="text-xl font-semibold text-red-600">{error}</p>
+                <button onClick={fetchSMEs} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                    Try Again
+                </button>
+            </div>
+        );
+    }
+
+    if (!isAuthenticated) {
+        return (
+            <div className="flex flex-col justify-center items-center h-screen bg-gray-50 text-center p-4">
+                <XCircle size={48} className="text-red-500 mb-4" />
+                <p className="text-xl font-semibold text-gray-600">You must be logged in to view this page. Please log in and try again.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="p-6 md:p-8">
+            <h1 className="text-3xl font-extrabold text-gray-900 mb-6">SME Dashboard</h1>
+
+            {/* Filter, Search, and Export Bar */}
+            <div className="bg-white rounded-2xl shadow-md p-4 mb-6 flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                <div className="relative w-full sm:w-1/2">
+                    <input
+                        type="text"
+                        placeholder="Search by company, seller, or email..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-50 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
+                    />
+                    <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                </div>
+                <div className="relative w-full sm:w-1/4">
+                    <Filter size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-50 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                    >
+                        <option value="all">All Statuses</option>
+                        <option value="new">New</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+                <button
+                    onClick={handleDownloadExcel}
+                    className="flex items-center space-x-2 w-full sm:w-auto px-4 py-2 bg-green-500 text-white font-semibold rounded-xl shadow-md hover:bg-green-600 transition-colors"
+                >
+                    <Download size={20} />
+                    <span>Export as Excel</span>
+                </button>
+            </div>
+
+            {/* SME Table */}
+            <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Company Name</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Seller Name</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Mobile</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {filteredSmes.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                                        No matching SME profiles found.
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredSmes.map((sme) => {
+                                    const statusInfo = getStatusInfo(sme.sellerStatus);
+                                    const StatusIcon = statusInfo.icon;
+                                    return (
+                                        <tr key={sme._id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{sme.companyName}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{sme.sellerName}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{sme.email}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{sme.mobile}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusInfo.color} ${statusInfo.text}`}>
+                                                    {sme.sellerStatus}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                                <button
+                                                    onClick={() => setSelectedSME(sme)}
+                                                    className="text-blue-600 hover:text-blue-900 transition-colors"
+                                                    title="View Details"
+                                                >
+                                                    <Eye size={20} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {selectedSME && (
+                <SMEModal
+                    sme={selectedSME}
+                    onClose={() => setSelectedSME(null)}
+                    onUpdateStatus={updateSMEStatus}
+                />
+            )}
+        </div>
+    );
 }

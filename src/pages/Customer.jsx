@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Trash2,
@@ -14,104 +14,13 @@ import {
   MapPin,
   Users,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 
-// --- Data for demonstration ---
-// This is the initial dummy data for the customers.
-const initialCustomers = [
-  {
-    "_id": { "$oid": "68936bb6b0c04bffbb47df1d" },
-    "name": "Ponkavin",
-    "email": "kavin@gmail.com",
-    "mobile": "7010039650",
-    "firstName": "Pon",
-    "lastName": "Kavin",
-    "alternatePhone": "9999988888",
-    "dateOfBirth": "1990-01-01",
-    "gender": "Male",
-    "occupation": "Software Developer",
-    "company": "Tech Innovations",
-    "profilePicture": "https://placehold.co/100x100/A3E635/16A34A?text=PK",
-    "address": {
-      "street": "123 Main Street",
-      "city": "Chennai",
-      "state": "Tamil Nadu",
-      "zip": "600001",
-      "country": "India"
-    },
-    "createdAt": "2025-08-06T14:50:30.543Z",
-  },
-  {
-    "_id": { "$oid": "68936bb6b0c04bffbb47df1e" },
-    "name": "Jane Doe",
-    "email": "jane.doe@example.com",
-    "mobile": "9876543210",
-    "firstName": "Jane",
-    "lastName": "Doe",
-    "alternatePhone": "9998887776",
-    "dateOfBirth": "1995-03-20",
-    "gender": "Female",
-    "occupation": "Graphic Designer",
-    "company": "Creative Works",
-    "profilePicture": "https://placehold.co/100x100/FACC15/78350F?text=JD",
-    "address": {
-      "street": "456 Oak Avenue",
-      "city": "Bengaluru",
-      "state": "Karnataka",
-      "zip": "560001",
-      "country": "India"
-    },
-    "createdAt": "2025-07-25T10:00:00.000Z",
-  },
-  {
-    "_id": { "$oid": "68936bb6b0c04bffbb47df1f" },
-    "name": "John Smith",
-    "email": "john.smith@example.com",
-    "mobile": "8887776665",
-    "firstName": "John",
-    "lastName": "Smith",
-    "alternatePhone": "",
-    "dateOfBirth": "1988-11-15",
-    "gender": "Male",
-    "occupation": "Marketing Manager",
-    "company": "Global Solutions",
-    "profilePicture": "https://placehold.co/100x100/60A5FA/1E40AF?text=JS",
-    "address": {
-      "street": "789 Pine Lane",
-      "city": "Mumbai",
-      "state": "Maharashtra",
-      "zip": "400001",
-      "country": "India"
-    },
-    "createdAt": "2025-07-01T15:00:00.000Z",
-  },
-  {
-    "_id": { "$oid": "68936bb6b0c04bffbb47df20" },
-    "name": "Alice Johnson",
-    "email": "alice@email.com",
-    "mobile": "7776665554",
-    "firstName": "Alice",
-    "lastName": "Johnson",
-    "alternatePhone": "",
-    "dateOfBirth": "1992-07-08",
-    "gender": "Female",
-    "occupation": "Data Analyst",
-    "company": "Data Insights Co.",
-    "profilePicture": "https://placehold.co/100x100/F472B6/831843?text=AJ",
-    "address": {
-      "street": "321 Cedar Road",
-      "city": "Delhi",
-      "state": "Delhi",
-      "zip": "110001",
-      "country": "India"
-    },
-    "createdAt": "2025-06-10T08:30:00.000Z",
-  },
-];
-
 // --- Confirmation Modal Component ---
-const ConfirmationModal = ({ message, onConfirm, onCancel }) => (
+const ConfirmationModal = ({ message, onConfirm, onCancel, isProcessing }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900 bg-opacity-75">
     <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4 text-center animate-fade-in">
       <h3 className="text-lg font-bold text-gray-800">Confirm Action</h3>
@@ -119,15 +28,21 @@ const ConfirmationModal = ({ message, onConfirm, onCancel }) => (
       <div className="flex justify-end space-x-2">
         <button
           onClick={onCancel}
-          className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-xl hover:bg-gray-300 transition-colors"
+          disabled={isProcessing}
+          className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-xl hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Cancel
         </button>
         <button
           onClick={onConfirm}
-          className="px-4 py-2 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-colors"
+          disabled={isProcessing}
+          className="px-4 py-2 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Confirm
+          {isProcessing ? (
+            <Loader2 className="h-5 w-5 animate-spin mx-4" />
+          ) : (
+            'Confirm'
+          )}
         </button>
       </div>
     </div>
@@ -162,8 +77,8 @@ const CustomerDetailsModal = ({ customer, onClose }) => {
           {/* Profile Picture */}
           <div className="flex-shrink-0">
             <img 
-              src={customer.profilePicture} 
-              alt={`${customer.firstName} ${customer.lastName}`}
+              src={customer.profilePicture || "https://placehold.co/100x100/E0E0E0/333333?text=User"} 
+              alt={customer.name}
               className="w-32 h-32 rounded-full object-cover shadow-lg"
             />
           </div>
@@ -175,7 +90,7 @@ const CustomerDetailsModal = ({ customer, onClose }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-gray-500 text-sm">Full Name</p>
-                  <p className="font-semibold text-gray-900">{customer.name}</p>
+                  <p className="font-semibold text-gray-900">{customer.name || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-gray-500 text-sm">Date of Birth</p>
@@ -243,7 +158,9 @@ const CustomerDetailsModal = ({ customer, onClose }) => {
 
 // --- Main Customer Component ---
 export default function Customer() {
-  const [customers, setCustomers] = useState(initialCustomers);
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState(null);
@@ -251,6 +168,50 @@ export default function Customer() {
   const [customerToView, setCustomerToView] = useState(null);
   const [groupBy, setGroupBy] = useState('none');
   const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Function to fetch customers from the backend
+  const fetchCustomers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('authToken');
+
+      // Add this console.log to see the exact token being used
+      console.log('Token retrieved from localStorage:', token);
+
+      // A more robust check to ensure the token is not null or an empty string
+      if (!token || token.trim() === '') {
+        setError('Authorization token not found. Please log in again.');
+        setLoading(false);
+        return; // Exit the function early if no valid token is found
+      }
+
+      const response = await fetch('http://localhost:5000/api/customers', {
+        headers: {
+          'x-auth-token': token
+        }
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Unauthorized. Invalid or expired token.');
+        }
+        throw new Error('Failed to fetch customers. Server responded with an error.');
+      }
+      const data = await response.json();
+      setCustomers(data);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching customers:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch customers on component mount
+  useEffect(() => {
+    fetchCustomers();
+  }, []); // The empty dependency array means this runs only once on mount
 
   // --- Filtering logic with useMemo for performance ---
   const filteredCustomers = useMemo(() => {
@@ -260,9 +221,9 @@ export default function Customer() {
     const lowercasedTerm = searchTerm.toLowerCase();
     return customers.filter(
       (customer) =>
-        customer.name.toLowerCase().includes(lowercasedTerm) ||
-        customer.email.toLowerCase().includes(lowercasedTerm) ||
-        customer.mobile.includes(lowercasedTerm)
+        (customer.name && customer.name.toLowerCase().includes(lowercasedTerm)) ||
+        (customer.email && customer.email.toLowerCase().includes(lowercasedTerm)) ||
+        (customer.mobile && customer.mobile.includes(lowercasedTerm))
     );
   }, [customers, searchTerm]);
 
@@ -294,10 +255,35 @@ export default function Customer() {
     setShowDeleteModal(true);
   };
 
-  const handleConfirmDelete = () => {
-    setCustomers(customers.filter((customer) => customer._id.$oid !== customerToDelete));
-    setShowDeleteModal(false);
-    setCustomerToDelete(null);
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const token = localStorage.getItem('token');
+      // Changed the header name to match your backend's auth middleware
+      const response = await fetch(`http://localhost:5000/api/customers/${customerToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'x-auth-token': token
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete customer.');
+      }
+
+      // Filter out the deleted customer from the local state
+      setCustomers(customers.filter((customer) => customer._id !== customerToDelete));
+      
+      // Close the modal and reset state
+      setShowDeleteModal(false);
+      setCustomerToDelete(null);
+    } catch (err) {
+      console.error('Error deleting customer:', err);
+      // Optionally show a user-friendly error message
+      alert('Error deleting customer. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleCancelDelete = () => {
@@ -317,7 +303,7 @@ export default function Customer() {
 
   const handleDownloadExcel = () => {
     const dataToExport = filteredCustomers.map(customer => ({
-      _id: customer._id.$oid,
+      _id: customer._id,
       name: customer.name,
       email: customer.email,
       mobile: customer.mobile,
@@ -349,6 +335,32 @@ export default function Customer() {
     link.click();
     document.body.removeChild(link);
   };
+
+  // --- Render logic based on state ---
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <Loader2 className="h-10 w-10 text-blue-500 animate-spin" />
+        <p className="ml-4 text-xl font-semibold text-gray-700">Loading customers...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-8">
+        <AlertTriangle className="h-16 w-16 text-red-500 mb-4" />
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Error</h2>
+        <p className="text-gray-600 text-center">{error}</p>
+        <button
+          onClick={fetchCustomers}
+          className="mt-4 px-6 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-100 min-h-screen p-6 md:p-8">
@@ -413,12 +425,12 @@ export default function Customer() {
                 <div className="space-y-4">
                   {groupedCustomers[groupKey].map((customer) => (
                     <div
-                      key={customer._id.$oid}
+                      key={customer._id}
                       className="bg-gray-50 rounded-2xl shadow-md border border-gray-200 p-6 flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0 hover:bg-white transition-colors"
                     >
                       <div className="flex items-center space-x-4 w-full md:w-auto">
                         <img 
-                          src={customer.profilePicture} 
+                          src={customer.profilePicture || "https://placehold.co/100x100/E0E0E0/333333?text=User"} 
                           alt={customer.name} 
                           className="w-12 h-12 rounded-full object-cover" 
                         />
@@ -451,7 +463,7 @@ export default function Customer() {
                           <span>View</span>
                         </button>
                         <button
-                          onClick={() => handleDeleteClick(customer._id.$oid)}
+                          onClick={() => handleDeleteClick(customer._id)}
                           className="flex items-center justify-center space-x-2 bg-red-600 text-white font-semibold py-2 px-4 rounded-xl hover:bg-red-700 transition-colors shadow-md"
                         >
                           <Trash2 size={16} />
@@ -477,6 +489,7 @@ export default function Customer() {
           message="Are you sure you want to delete this customer record? This action cannot be undone."
           onConfirm={handleConfirmDelete}
           onCancel={handleCancelDelete}
+          isProcessing={isDeleting}
         />
       )}
       {showViewModal && <CustomerDetailsModal customer={customerToView} onClose={handleCloseViewModal} />}

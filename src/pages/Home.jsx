@@ -1,31 +1,46 @@
 import React from 'react';
-import SME from './SME'; // Import the new SME component
+import SME from './SME';
 import FPO from './FPO';
 import Customer from './Customer';
 import Order from './Order';
 import BuyerSupport from './BuyerSupport';
 import SellerSupportTicket from './SellerSupport';
-import AdminDashboard from './AdminDashboard'; 
+import AdminDashboard from './AdminDashboard';
+import App from './AddCategory';
+import AdminBanner from './AdminBanner';
 
 // Main content area component
-export default function MainContent({ activeMenuItem, setActiveMenuItem }) {
+// Accept authToken, userRole, and onAuthError as props
+export default function MainContent({ activeMenuItem, setActiveMenuItem, userRole, authToken, onAuthError }) {
   // Render different components based on the active menu item
   const renderContent = () => {
     switch (activeMenuItem) {
       case 'Home':
-        return <AdminDashboard  setActiveMenuItem={setActiveMenuItem}  />; 
+        // Pass authToken and onAuthError to the AdminDashboard component
+        return <AdminDashboard setActiveMenuItem={setActiveMenuItem} authToken={authToken} onAuthError={onAuthError} />;
       case 'SME':
-        return <SME />;
+        // Pass authToken and userRole to the SME component
+        return <SME userRole={userRole} authToken={authToken} />;
       case 'FPO':
-        return <FPO />;
+        // Pass authToken and userRole to the FPO component
+        return <FPO userRole={userRole} authToken={authToken} />;
       case 'Customers':
-        return <Customer/>;
+        // Pass authToken and userRole to the Customer component
+        return <Customer userRole={userRole} authToken={authToken} />;
+        case 'Add Category':
+        // Pass authToken and userRole to the Customer component
+        return <App userRole={userRole} authToken={authToken} />;
       case 'Orders':
-        return <Order/>
+        // Pass authToken and userRole to the Order component
+        return <Order userRole={userRole} authToken={authToken} />;
       case 'Buyer Support':
-        return <BuyerSupport/>
+        // Pass authToken and userRole to the BuyerSupport component
+        return <BuyerSupport userRole={userRole} authToken={authToken} />;
       case 'Seller Support':
-        return <SellerSupportTicket/>
+        // Pass authToken and userRole to the SellerSupportTicket component
+        return <SellerSupportTicket userRole={userRole} authToken={authToken} />;
+      case 'Add Banner':
+        return <AdminBanner  userRole={userRole} authToken={authToken}/>;
       // Add more cases for other menu items here
       default:
         return (
