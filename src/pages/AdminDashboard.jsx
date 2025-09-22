@@ -60,7 +60,7 @@ const TabButton = ({ title, active, onClick }) => (
 );
 
 // Constants for styling
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 const COLORS = ["#4D8BFF", "#2EBE77", "#FFB63D", "#FF6B6B", "#8B6BFF", "#2ECBE7"];
 
 export default function AdminDashboard() {
@@ -72,7 +72,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/admin/dashboard`);
+        const response = await fetch(`${API_BASE_URL}admin/dashboard`);
 
         if (!response.ok) {
           const errorData = await response.json();

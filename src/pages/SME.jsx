@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 // You can configure this to your backend server
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 // --- Helper function to get status styling ---
 const getStatusInfo = (status) => {
@@ -231,7 +231,7 @@ export default function SME() {
                 throw new Error('No authentication token found. Please log in.');
             }
 
-            const response = await fetch(`${API_BASE_URL}/sellerprofile/sme-admin`, {
+            const response = await fetch(`${API_BASE_URL}sellerprofile/sme-admin`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -271,7 +271,7 @@ export default function SME() {
                 return;
             }
 
-            const response = await fetch(`${API_BASE_URL}/sellerprofile/update-status/${smeId}`, {
+            const response = await fetch(`${API_BASE_URL}sellerprofile/update-status/${smeId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

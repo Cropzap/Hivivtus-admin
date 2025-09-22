@@ -10,7 +10,7 @@ export default function Sidebar({ isSidebarOpen, setIsSidebarOpen, activeMenuIte
       }`}
     >
       <div className="flex items-center justify-between p-6 bg-blue-600 text-white">
-        <h1 className="text-2xl font-bold">Admin Panel</h1>
+        <h1 className="text-2xl font-bold">Hivictus Admin Console</h1>
         {/* Close button for mobile view */}
         <button
           onClick={() => setIsSidebarOpen(false)}

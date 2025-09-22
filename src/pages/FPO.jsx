@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 // You can configure this to your backend server
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 // --- Helper function to get status styling ---
 const getStatusInfo = (status) => {
@@ -233,7 +233,7 @@ export default function FPO() {
             }
 
             // Corrected API endpoint for FPOs
-            const response = await fetch(`${API_BASE_URL}/sellerprofile/fpo-admin`, {
+            const response = await fetch(`${API_BASE_URL}sellerprofile/fpo-admin`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -272,7 +272,7 @@ export default function FPO() {
                 return;
             }
 
-            const response = await fetch(`${API_BASE_URL}/sellerprofile/update-status/${fpoId}`, {
+            const response = await fetch(`${API_BASE_URL}sellerprofile/update-status/${fpoId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

@@ -16,7 +16,8 @@ const Login = ({ setIsLoggedIn }) => {
     setError(null); // Clear any previous errors
 
     // The backend API URL for admin login
-    const apiUrl = 'http://localhost:5000/api/admin/login'; 
+    const API_URL = import.meta.env.VITE_API_URL;
+    const apiUrl = `${API_URL}admin/login`; 
 
     try {
       const response = await fetch(apiUrl, {

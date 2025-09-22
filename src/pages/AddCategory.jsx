@@ -18,9 +18,9 @@ const App = () => {
   // State for delete confirmation modal
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
-
+  const API = import.meta.env.VITE_API_URL;
   // Base URL for the API. Change this if your backend is on a different port or host.
-  const API_URL = 'http://localhost:5000/api/categories';
+  const API_URL = `${API}categories`;
 
   // Function to fetch all categories from the backend
   const fetchCategories = async () => {

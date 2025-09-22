@@ -3,7 +3,8 @@ import { FaChevronLeft, FaChevronRight, FaPlus, FaEdit, FaTrash, FaTimes } from 
 
 // --- API Configuration ---
 // Make sure your Node.js/Express server is running at this URL.
-const API_URL = 'http://localhost:5000/api/banners';
+const API = import.meta.env.VITE_API_URL;
+const API_URL = `${API}banners`;
 
 // --- Main AdminBanner Component ---
 const AdminBanner = () => {
