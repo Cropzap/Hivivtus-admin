@@ -8,6 +8,7 @@ import SellerSupportTicket from './SellerSupport';
 import AdminDashboard from './AdminDashboard';
 import App from './AddCategory';
 import AdminBanner from './AdminBanner';
+import AdminProductReview from './AdminProductReview';
 
 // Main content area component
 // Accept authToken, userRole, and onAuthError as props
@@ -30,6 +31,10 @@ export default function MainContent({ activeMenuItem, setActiveMenuItem, userRol
         case 'Add Category':
         // Pass authToken and userRole to the Customer component
         return <App userRole={userRole} authToken={authToken} />;
+      
+      case 'Products':
+        // Pass authToken and userRole to the Customer component
+        return <AdminProductReview userRole={userRole} authToken={authToken} />;
       case 'Orders':
         // Pass authToken and userRole to the Order component
         return <Order userRole={userRole} authToken={authToken} />;

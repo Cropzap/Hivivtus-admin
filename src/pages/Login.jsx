@@ -18,7 +18,7 @@ const Login = ({ setIsLoggedIn }) => {
     // The backend API URL for admin login
     const API_URL = import.meta.env.VITE_API_URL;
     const apiUrl = `${API_URL}admin/login`; 
-
+    
     try {
       const response = await fetch(apiUrl, {
         method: 'POST',

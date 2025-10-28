@@ -23,6 +23,7 @@ const menuItems = [
   { name: 'SME', icon: BriefcaseBusiness, roles: ['admin'] },
   { name: 'Customers', icon: Users, roles: ['admin'] },
   { name: 'Orders', icon: Package, roles: ['admin'] },
+   { name: 'Products', icon: Package, roles: ['admin'] },
   { name: 'Buyer Support', icon: Headset, roles: ['admin'] },
   { name: 'Seller Support', icon: Ticket, roles: ['admin'] },
   { name: 'Add Category', icon: List, roles: ['admin'] },
