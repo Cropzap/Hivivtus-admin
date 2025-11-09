@@ -1,14 +1,12 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
-    Box, Typography, Button, Grid, TextField, Select, MenuItem, Paper, CircularProgress
+    Box, Typography, Button, Grid, TextField, Select, MenuItem, Paper, CircularProgress, Alert
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { motion, AnimatePresence } from "framer-motion";
 import * as XLSX from "xlsx";
 import axios from 'axios';
 import {
-    Trash2,
-    Download,
     Info,
     Package,
     User,
@@ -23,9 +21,12 @@ import {
     ChevronLeft,
     ChevronRight,
     Eye,
+    Zap, // Added for status update visibility
 } from 'lucide-react';
+
 const API_URL = import.meta.env.VITE_API_URL;
-// Tailwind CSS classes for animations
+
+// Tailwind CSS classes for animations (kept as provided)
 const customStyles = `
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
@@ -65,7 +66,10 @@ const STATUS_COLORS = {
     Shipped: "bg-indigo-200 text-indigo-800",
     Delivered: "bg-green-200 text-green-800",
     Cancelled: "bg-red-200 text-red-800",
+    Paid: "bg-purple-200 text-purple-800", // Added Paid
 };
+
+const ORDER_STATUSES = Object.keys(STATUS_COLORS); // Get all possible statuses
 
 const initialFilters = {
     customerName: "",
@@ -82,11 +86,11 @@ const modalVariants = {
     exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } },
 };
 
-// --- Modal Components (Keep these as you provided) ---
-const ModalWrapper = ({ children, onClose }) => (
+// --- Modal Components ---
+const ModalWrapper = ({ children, onClose, maxWidth = 'max-w-4xl' }) => (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-gray-900 bg-opacity-75 backdrop-blur-sm animate-fadeIn">
         <motion.div
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 md:p-8 relative"
+            className={`bg-white rounded-3xl shadow-2xl w-full ${maxWidth} max-h-[90vh] overflow-y-auto p-6 md:p-8 relative`}
             variants={modalVariants}
             initial="hidden"
             animate="visible"
@@ -103,7 +107,7 @@ const ModalWrapper = ({ children, onClose }) => (
 const CustomerDetailsModal = ({ customer, onClose }) => {
     if (!customer) return null;
     return (
-        <ModalWrapper onClose={onClose}>
+        <ModalWrapper onClose={onClose} maxWidth="max-w-lg">
             <h3 className="text-3xl font-bold text-gray-900 border-b-2 pb-4 mb-4 flex items-center"><User size={28} className="mr-3 text-blue-500" /> Customer Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50">
@@ -126,7 +130,7 @@ const CustomerDetailsModal = ({ customer, onClose }) => {
 const SellerDetailsModal = ({ seller, onClose }) => {
     if (!seller) return null;
     return (
-        <ModalWrapper onClose={onClose}>
+        <ModalWrapper onClose={onClose} maxWidth="max-w-lg">
             <h3 className="text-3xl font-bold text-gray-900 border-b-2 pb-4 mb-4 flex items-center"><Building size={28} className="mr-3 text-indigo-500" /> Seller Details</h3>
             <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
                 <div className="text-center md:text-left">
@@ -154,7 +158,6 @@ const SellerDetailsModal = ({ seller, onClose }) => {
 
 const OrderDetailsModal = ({ order, onClose }) => {
     if (!order) return null;
-    const formatDate = (dateString) => new Date(dateString).toLocaleDateString();
     return (
         <ModalWrapper onClose={onClose}>
             <h3 className="text-3xl font-bold text-gray-900 border-b-2 pb-4 mb-6 flex items-center"><Package size={28} className="mr-3 text-blue-500" /> Order Details</h3>
@@ -169,11 +172,19 @@ const OrderDetailsModal = ({ order, onClose }) => {
                     <p className="font-bold text-green-600 text-xl flex items-center justify-center"><DollarSign size={20} className="mr-1" />{order.totalAmount}</p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-xl shadow-inner">
-                    <p className="text-sm text-gray-500">Status</p>
+                    <p className="text-sm text-gray-500">Official Status</p>
                     <span className={`px-3 py-1 font-bold text-sm rounded-full ${STATUS_COLORS[order.status] || 'bg-gray-200 text-gray-800'}`}>
                         {order.status}
                     </span>
                 </div>
+                {/* Display seller requested status if pending approval */}
+                {order.adminApprovalStatus === 'Awaiting Approval' && (
+                    <div className="bg-red-100 p-4 rounded-xl shadow-inner col-span-full border-red-300 border">
+                        <p className="text-sm text-red-700 font-bold flex items-center justify-center">
+                            <Zap size={18} className='mr-2' /> Seller Requested Status: {order.sellerStatus} - Awaiting Admin Approval
+                        </p>
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -219,6 +230,95 @@ const OrderDetailsModal = ({ order, onClose }) => {
     );
 };
 
+// --- NEW Status Update Modal ---
+const StatusUpdateModal = ({ order, onClose, onUpdate }) => {
+    const [newStatus, setNewStatus] = useState(order.status);
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [alert, setAlert] = useState({ message: '', severity: '' });
+
+    // Determine the status to suggest/default to in the selector
+    useEffect(() => {
+        if (order.adminApprovalStatus === 'Awaiting Approval') {
+            setNewStatus(order.sellerStatus);
+        } else {
+            setNewStatus(order.status);
+        }
+    }, [order]);
+
+    const handleConfirm = async () => {
+        setIsUpdating(true);
+        if (newStatus === order.status && order.adminApprovalStatus !== 'Awaiting Approval') {
+            setAlert({ message: 'Status is already set to this value.', severity: 'warning' });
+            setIsUpdating(false);
+            return;
+        }
+        await onUpdate(order._id, newStatus, setAlert);
+        setIsUpdating(false);
+    };
+
+    const isApprovalNeeded = order.adminApprovalStatus === 'Awaiting Approval';
+
+    return (
+        <ModalWrapper onClose={onClose} maxWidth="max-w-md">
+            <h3 className="text-2xl font-bold text-gray-900 border-b-2 pb-4 mb-4 flex items-center">
+                <Zap size={24} className="mr-2 text-red-500" /> Admin Status Update
+            </h3>
+            
+            <p className="mb-4 text-gray-700 font-medium">Order ID: **{order._id}**</p>
+
+            {isApprovalNeeded && (
+                <Alert severity="warning" className='mb-4 flex items-center'>
+                    Seller requested status change to **{order.sellerStatus}**.
+                </Alert>
+            )}
+
+            <div className="mb-4">
+                <Typography variant="body1" className="mb-2 font-semibold text-gray-700">
+                    Current Official Status: 
+                    <span className={`ml-2 px-3 py-1 font-bold text-sm rounded-full ${STATUS_COLORS[order.status]}`}>
+                        {order.status}
+                    </span>
+                </Typography>
+            </div>
+            
+            <Select
+                fullWidth
+                value={newStatus}
+                onChange={(e) => setNewStatus(e.target.value)}
+                label="New Official Status"
+                size="small"
+                className='mb-6'
+            >
+                {ORDER_STATUSES.map(status => (
+                    <MenuItem key={status} value={status}>
+                        {status}
+                    </MenuItem>
+                ))}
+            </Select>
+
+            {alert.message && (
+                <Alert severity={alert.severity} className='mb-4'>{alert.message}</Alert>
+            )}
+
+            <Button
+                variant="contained"
+                color="primary"
+                fullWidth
+                onClick={handleConfirm}
+                disabled={isUpdating}
+                startIcon={isUpdating ? <CircularProgress size={20} color="inherit" /> : null}
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-full py-3"
+            >
+                {isUpdating ? 'Updating...' : `Approve & Set Status to: ${newStatus}`}
+            </Button>
+            <Button onClick={onClose} color="inherit" fullWidth className="mt-2 text-gray-600 hover:bg-gray-100">
+                Cancel
+            </Button>
+        </ModalWrapper>
+    );
+};
+
+
 // --- Main Component ---
 export default function Order() {
     // Inject custom styles into the head
@@ -246,42 +346,74 @@ export default function Order() {
     const [selectedSeller, setSelectedSeller] = useState(null);
     const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    
+    // NEW Status Update State
+    const [showStatusUpdateModal, setShowStatusUpdateModal] = useState(false);
+    const [orderToUpdate, setOrderToUpdate] = useState(null);
 
-    // Fetch orders from the backend on component mount
-    useEffect(() => {
-        const fetchOrders = async () => {
-            try {
-                const token = localStorage.getItem('authToken'); 
-                if (!token) {
-                    setError('Authentication token not found.');
-                    setLoading(false);
-                    return;
-                }
-                const res = await axios.get(`${API_URL}orders/seller`, {
-                    headers: {
-                        'x-auth-token': token,
-                    },
-                });
-                
-                if (Array.isArray(res.data)) {
-                    setOrders(res.data);
-                } else {
-                    setOrders([]);
-                    console.warn('API did not return an array of orders:', res.data);
-                }
-                
+    // Fetch orders from the backend
+    const fetchOrders = useCallback(async () => {
+        try {
+            const token = localStorage.getItem('authToken'); 
+            if (!token) {
+                setError('Authentication token not found.');
                 setLoading(false);
-            } catch (err) {
-                console.error("Error fetching orders:", err);
-                setError('Failed to fetch orders. Please try again.');
-                setLoading(false);
+                return;
             }
-        };
-
-        fetchOrders();
+            const res = await axios.get(`${API_URL}orders/seller`, {
+                headers: {
+                    'x-auth-token': token,
+                },
+            });
+            
+            if (Array.isArray(res.data)) {
+                setOrders(res.data);
+            } else {
+                setOrders([]);
+                console.warn('API did not return an array of orders:', res.data);
+            }
+            
+            setLoading(false);
+        } catch (err) {
+            console.error("Error fetching orders:", err);
+            setError('Failed to fetch orders. Please try again.');
+            setLoading(false);
+        }
     }, []);
 
-    // Filtering logic with useMemo for performance
+    useEffect(() => {
+        fetchOrders();
+    }, [fetchOrders]);
+
+    // Admin Status Update Handler
+    const handleAdminUpdateStatus = async (orderId, newStatus, setAlert) => {
+        try {
+            const token = localStorage.getItem('authToken');
+            // 🔑 API endpoint used for Admin status approval/update 🔑
+            const res = await axios.put(`${API_URL}orders/admin-update-status/${orderId}`, { newStatus }, {
+                headers: {
+                    'x-auth-token': token,
+                },
+            });
+            
+            setAlert({ message: res.data.msg, severity: 'success' });
+            
+            // Wait briefly for the message to display, then close modal and refresh list
+            setTimeout(() => {
+                setShowStatusUpdateModal(false);
+                setOrderToUpdate(null);
+                fetchOrders(); // Refresh the list
+            }, 1000);
+
+        } catch (err) {
+            console.error("Error updating status:", err);
+            const msg = err.response?.data?.msg || 'Failed to update order status.';
+            setAlert({ message: msg, severity: 'error' });
+        }
+    };
+
+
+    // Filtering logic with useMemo for performance (Unchanged)
     const filteredOrders = useMemo(() => {
         if (!orders) return [];
         return orders.filter((order) => {
@@ -332,7 +464,9 @@ export default function Order() {
             "Seller Name": order.seller.companyName,
             "Seller Email": order.seller.email,
             "Total Amount": order.totalAmount,
-            "Status": order.status,
+            "Official Status": order.status,
+            "Seller Requested Status": order.sellerStatus,
+            "Approval Status": order.adminApprovalStatus,
             "Order Date": new Date(order.createdAt).toLocaleString(),
             "Shipping Address": `${order.shippingAddress.address1}, ${order.shippingAddress.city}, ${order.shippingAddress.postalCode}, ${order.shippingAddress.country}`,
             "Items": order.items.map(item => `${item.name} (x${item.quantity})`).join(', ')
@@ -352,7 +486,7 @@ export default function Order() {
         })}`;
     };
 
-    // Animation variants for framer-motion
+    // Animation variants for framer-motion (Unchanged)
     const containerVariants = {
         hidden: { opacity: 0, y: 15 },
         visible: { opacity: 1, y: 0 },
@@ -362,11 +496,6 @@ export default function Order() {
         hidden: { opacity: 0, x: -20 },
         visible: { opacity: 1, x: 0 },
         hover: { scale: 1.02, boxShadow: "0 4px 14px rgba(0,0,0,0.1)" },
-    };
-
-    const paginationVariants = {
-        initial: { opacity: 0, y: 20 },
-        animate: { opacity: 1, y: 0 },
     };
 
     return (
@@ -393,7 +522,7 @@ export default function Order() {
                     </Button>
                 </Box>
 
-                {/* Filters section */}
+                {/* Filters section (Unchanged) */}
                 <Grid container spacing={2} mb={4}>
                     <Grid item xs={12} sm={6} md={3}>
                         <TextField
@@ -430,7 +559,7 @@ export default function Order() {
                             }}
                         >
                             <MenuItem value="">All Status</MenuItem>
-                            {Object.keys(STATUS_COLORS).map(status => (
+                            {ORDER_STATUSES.map(status => (
                                 <MenuItem key={status} value={status}>{status}</MenuItem>
                             ))}
                         </Select>
@@ -483,7 +612,7 @@ export default function Order() {
                                 <motion.th scope="col" className="w-2/12 px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Seller</motion.th>
                                 <motion.th scope="col" className="w-1/12 px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</motion.th>
                                 <motion.th scope="col" className="w-1/12 px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Amount</motion.th>
-                                <motion.th scope="col" className="w-2/12 px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Details</motion.th>
+                                <motion.th scope="col" className="w-2/12 px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</motion.th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
@@ -494,66 +623,87 @@ export default function Order() {
                             ) : paginatedOrders.length === 0 ? (
                                 <tr><td colSpan={7} className="text-center py-16 text-gray-400 italic font-semibold">No records found.</td></tr>
                             ) : (
-                                paginatedOrders.map((order, index) => (
-                                    <motion.tr
-                                        key={order._id}
-                                        className="even:bg-white/70 odd:bg-white/50 hover:bg-blue-50 transition-colors"
-                                        initial="hidden"
-                                        animate="visible"
-                                        variants={rowVariants}
-                                        whileHover="hover"
-                                        transition={{ delay: index * 0.05, duration: 0.25 }}
-                                    >
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{formatDateTime(order.createdAt)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 max-w-[100px] truncate">{order._id}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 max-w-[140px] truncate">
-                                            <div className="flex items-center gap-2">
-                                                <span>{order.user.firstName} {order.user.lastName}</span>
-                                                <button
-                                                    onClick={() => { setSelectedCustomer(order.user); setShowCustomerDetailsModal(true); }}
-                                                    className="text-blue-500 hover:text-blue-700 transition"
-                                                    title="View Customer Details"
+                                paginatedOrders.map((order, index) => {
+                                    const needsApproval = order.adminApprovalStatus === 'Awaiting Approval';
+                                    return (
+                                        <motion.tr
+                                            key={order._id}
+                                            className={`even:bg-white/70 odd:bg-white/50 hover:bg-blue-50 transition-colors ${needsApproval ? 'bg-red-50 hover:bg-red-100 border-l-4 border-red-500' : ''}`}
+                                            initial="hidden"
+                                            animate="visible"
+                                            variants={rowVariants}
+                                            whileHover="hover"
+                                            transition={{ delay: index * 0.05, duration: 0.25 }}
+                                        >
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{formatDateTime(order.createdAt)}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 max-w-[100px] truncate">{order._id}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 max-w-[140px] truncate">
+                                                <div className="flex items-center gap-2">
+                                                    <span>{order.user.firstName} {order.user.lastName}</span>
+                                                    <button
+                                                        onClick={() => { setSelectedCustomer(order.user); setShowCustomerDetailsModal(true); }}
+                                                        className="text-blue-500 hover:text-blue-700 transition"
+                                                        title="View Customer Details"
+                                                    >
+                                                        <Info size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 max-w-[140px] truncate">
+                                                <div className="flex items-center gap-2">
+                                                    <span>{order.seller.companyName}</span>
+                                                    <button
+                                                        onClick={() => { setSelectedSeller(order.seller); setShowSellerDetailsModal(true); }}
+                                                        className="text-indigo-500 hover:text-indigo-700 transition"
+                                                        title="View Seller Details"
+                                                    >
+                                                        <Info size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                                {needsApproval && (
+                                                    <div className='flex items-center text-red-600 font-bold mb-1'>
+                                                        <Zap size={14} className='mr-1' /> Approval Needed
+                                                    </div>
+                                                )}
+                                                <span className={`px-3 py-1 font-bold text-xs rounded-full ${STATUS_COLORS[order.status] || 'bg-gray-200 text-gray-800'}`}>
+                                                    {order.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">${order.totalAmount}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-center space-x-2 flex items-center justify-center">
+                                                {/* View Details Button */}
+                                                <motion.button
+                                                    onClick={() => { setSelectedOrder(order); setShowOrderDetailsModal(true); }}
+                                                    className="bg-blue-600 text-white hover:bg-blue-700 transition rounded-md p-2 text-sm font-medium"
+                                                    whileHover={{ scale: 1.05 }}
+                                                    whileTap={{ scale: 0.95 }}
+                                                    title="View Details"
                                                 >
-                                                    <Info size={16} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 max-w-[140px] truncate">
-                                            <div className="flex items-center gap-2">
-                                                <span>{order.seller.companyName}</span>
-                                                <button
-                                                    onClick={() => { setSelectedSeller(order.seller); setShowSellerDetailsModal(true); }}
-                                                    className="text-indigo-500 hover:text-indigo-700 transition"
-                                                    title="View Seller Details"
+                                                    <Eye size={16} />
+                                                </motion.button>
+                                                
+                                                {/* Status Update Button */}
+                                                <motion.button
+                                                    onClick={() => { setOrderToUpdate(order); setShowStatusUpdateModal(true); }}
+                                                    className={`transition rounded-md p-2 text-sm font-medium ${needsApproval ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-green-600 text-white hover:bg-green-700'}`}
+                                                    whileHover={{ scale: 1.05 }}
+                                                    whileTap={{ scale: 0.95 }}
+                                                    title="Update Status"
                                                 >
-                                                    <Info size={16} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm">
-                                            <span className={`px-3 py-1 font-bold text-xs rounded-full ${STATUS_COLORS[order.status] || 'bg-gray-200 text-gray-800'}`}>
-                                                {order.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">${order.totalAmount}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-center space-x-2">
-                                            <motion.button
-                                                onClick={() => { setSelectedOrder(order); setShowOrderDetailsModal(true); }}
-                                                className="bg-blue-600 text-white hover:bg-blue-700 transition rounded-md px-3 py-1 text-sm font-medium"
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
-                                            >
-                                                <Eye size={16} />
-                                            </motion.button>
-                                        </td>
-                                    </motion.tr>
-                                ))
+                                                    {needsApproval ? <Zap size={16} /> : <Clock size={16} />}
+                                                </motion.button>
+                                            </td>
+                                        </motion.tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
                 </div>
 
-                {/* Pagination */}
+                {/* Pagination (Unchanged) */}
                 <Box display="flex" justifyContent="center" alignItems="center" mt={4} className="space-x-4">
                     <motion.button
                         onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
@@ -589,6 +739,14 @@ export default function Order() {
                 )}
                 {showOrderDetailsModal && (
                     <OrderDetailsModal order={selectedOrder} onClose={() => setShowOrderDetailsModal(false)} />
+                )}
+                {/* NEW Status Update Modal */}
+                {showStatusUpdateModal && orderToUpdate && (
+                    <StatusUpdateModal 
+                        order={orderToUpdate} 
+                        onClose={() => setShowStatusUpdateModal(false)}
+                        onUpdate={handleAdminUpdateStatus} 
+                    />
                 )}
             </AnimatePresence>
         </Paper>

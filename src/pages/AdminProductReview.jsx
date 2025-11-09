@@ -8,8 +8,8 @@ import {
 
 // --- API URL Definition FIX (Retained) ---
 const getBaseApiUrl = () => {
-    // Note: In a real environment, replace 'http://localhost:5000/api/' with your actual base API URL.
-    const url = 'https://api.hivictus.com/api/'; 
+    // Note: In a real environment, replace 'http://localhost:5000/api/' with your actual base API URL. https://api.hivictus.com/api/
+    const url = 'http://localhost:5000/api/'; 
     return url.replace(/\/?$/, '/');
 };
 
