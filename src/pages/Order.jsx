@@ -106,22 +106,130 @@ const ModalWrapper = ({ children, onClose, maxWidth = 'max-w-4xl' }) => (
 
 const CustomerDetailsModal = ({ customer, onClose }) => {
     if (!customer) return null;
+
+    // Helper to format the date
+    // NOTE: dateOfBirth is missing in the data, so it will fall back to 'N/A'
+    const formattedDOB = customer.dateOfBirth
+        ? new Date(customer.dateOfBirth).toLocaleDateString()
+        : 'N/A';
+
+    // Safety check for address object existence and use optional chaining
+    const address = customer.address || {};
+    // Use Object.keys to check if *any* relevant address field is present
+    const hasAddress = Object.keys(address).some(key => address[key] && address[key].toString().trim() !== '');
+
+    // Get the name, prioritizing root 'name' if firstName/lastName are absent
+    const fullName = customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'N/A';
+
+
     return (
-        <ModalWrapper onClose={onClose} maxWidth="max-w-lg">
-            <h3 className="text-3xl font-bold text-gray-900 border-b-2 pb-4 mb-4 flex items-center"><User size={28} className="mr-3 text-blue-500" /> Customer Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <ModalWrapper onClose={onClose} maxWidth="max-w-xl">
+            <h3 className="text-3xl font-bold text-gray-900 border-b-2 pb-4 mb-6 flex items-center">
+                <User size={28} className="mr-3 text-blue-500" /> Customer Details
+            </h3>
+
+            {/* Profile Picture & Full Name (using 'name' from data) */}
+            <div className="flex items-center space-x-4 mb-6">
+                <img
+                    src={customer.profilePicture || 'https://placehold.co/150x150/E0E0E0/333333?text=User'}
+                    alt="Profile"
+                    className="w-16 h-16 rounded-full object-cover border-2 border-blue-200"
+                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/150x150/E0E0E0/333333?text=User'; }}
+                />
+                <h4 className="text-xl font-bold text-gray-900">
+                    {fullName}
+                </h4>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                {/* Contact Information */}
+                <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50 col-span-1">
+                    <p className="text-gray-500 font-semibold text-sm">Primary Email</p>
+                    <p className="text-gray-800 text-lg flex items-center truncate">
+                        <Mail size={20} className="mr-2 text-gray-400" />{customer.email}
+                    </p>
+                </div>
+                <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50 col-span-1">
+                    <p className="text-gray-500 font-semibold text-sm">Primary Phone</p>
+                    <p className="text-gray-800 text-lg flex items-center">
+                        <Smartphone size={20} className="mr-2 text-gray-400" />{customer.mobile}
+                    </p>
+                </div>
+                {/* Note: AlternatePhone is missing in your data, displays N/A */}
+                <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50 col-span-1">
+                    <p className="text-gray-500 font-semibold text-sm">Alternate Phone</p>
+                    <p className="text-gray-800 text-lg flex items-center">
+                        <Smartphone size={20} className="mr-2 text-gray-400" />{customer.alternatePhone || 'N/A'}
+                    </p>
+                </div>
+
+                {/* Personal & Professional Details */}
+                {/* Note: DateOfBirth, Occupation, Company are missing in your data, display N/A */}
                 <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50">
-                    <p className="text-gray-500 font-semibold text-sm">Name</p>
-                    <p className="text-gray-800 text-lg flex items-center"><User size={20} className="mr-2 text-gray-400" />{customer.firstName} {customer.lastName}</p>
+                    <p className="text-gray-500 font-semibold text-sm">Date of Birth</p>
+                    <p className="text-gray-800 text-lg flex items-center">
+                        <Clock size={20} className="mr-2 text-gray-400" />{formattedDOB}
+                    </p>
                 </div>
                 <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50">
-                    <p className="text-gray-500 font-semibold text-sm">Email</p>
-                    <p className="text-gray-800 text-lg flex items-center"><Mail size={20} className="mr-2 text-gray-400" />{customer.email}</p>
+                    <p className="text-gray-500 font-semibold text-sm">Gender</p>
+                    <p className="text-gray-800 text-lg flex items-center">
+                        <User size={20} className="mr-2 text-gray-400" />{customer.gender || 'N/A'}
+                    </p>
+                </div>
+                <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50">
+                    <p className="text-gray-500 font-semibold text-sm">Occupation</p>
+                    <p className="text-gray-800 text-lg flex items-center">
+                        <Building size={20} className="mr-2 text-gray-400" />{customer.occupation || 'N/A'}
+                    </p>
                 </div>
                 <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50 col-span-full">
-                    <p className="text-gray-500 font-semibold text-sm">Mobile</p>
-                    <p className="text-gray-800 text-lg flex items-center"><Smartphone size={20} className="mr-2 text-gray-400" />{customer.mobile}</p>
+                    <p className="text-gray-500 font-semibold text-sm">Company</p>
+                    <p className="text-gray-800 text-lg flex items-center">
+                        <Building size={20} className="mr-2 text-gray-400" />{customer.company || 'N/A'}
+                    </p>
                 </div>
+
+                {/* Address Details (Displayed Individually) */}
+                {hasAddress ? (
+                    <>
+                        <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50 col-span-1">
+                            <p className="text-gray-500 font-semibold text-sm">Street/Apartment</p>
+                            <p className="text-gray-800 text-lg flex items-center">
+                                <MapPin size={20} className="mr-2 text-gray-400" />
+                                {/* Display apartment first, then street if apartment is missing */}
+                                {address.apartment || address.street || '—'}
+                            </p>
+                        </div>
+                        <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50 col-span-1">
+                            <p className="text-gray-500 font-semibold text-sm">City/State</p>
+                            <p className="text-gray-800 text-lg flex items-center">
+                                <MapPin size={20} className="mr-2 text-gray-400" />
+                                {`${address.city || '—'}, ${address.state || '—'}`}
+                            </p>
+                        </div>
+                        <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50 col-span-1">
+                            <p className="text-gray-500 font-semibold text-sm">Zip/Country</p>
+                            <p className="text-gray-800 text-lg flex items-center">
+                                <MapPin size={20} className="mr-2 text-gray-400" />
+                                {/* Use 'zip' as per your Mongoose schema, which corresponds to the 'zip' key in your data */}
+                                {`${address.zip || '—'} / ${address.country || '—'}`}
+                            </p>
+                        </div>
+                        <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50 col-span-full">
+                            <p className="text-gray-500 font-semibold text-sm">Landmark</p>
+                            <p className="text-gray-800 text-lg flex items-center">
+                                <MapPin size={20} className="mr-2 text-gray-400" />
+                                {address.landmark || '—'}
+                            </p>
+                        </div>
+                    </>
+                ) : (
+                    <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50 col-span-full text-center">
+                        <p className="text-red-500 font-semibold text-base">No Registered Address Provided</p>
+                    </div>
+                )}
             </div>
         </ModalWrapper>
     );
@@ -129,6 +237,16 @@ const CustomerDetailsModal = ({ customer, onClose }) => {
 
 const SellerDetailsModal = ({ seller, onClose }) => {
     if (!seller) return null;
+
+    // ✅ FIX: Check if seller.address is an object and format it.
+    const formattedAddress = 
+        (typeof seller.address === 'object' && seller.address !== null)
+            ? `${seller.address.street || ''}, ${seller.address.city || ''}, ${seller.address.state || ''} - ${seller.address.pincode || ''}`
+            : (typeof seller.address === 'string' ? seller.address : 'Address Not Specified');
+            
+    // Optional: Clean up leading commas/hyphens if fields are empty
+    const addressToDisplay = formattedAddress.replace(/,\s*-\s*$/, '').trim();
+
     return (
         <ModalWrapper onClose={onClose} maxWidth="max-w-lg">
             <h3 className="text-3xl font-bold text-gray-900 border-b-2 pb-4 mb-4 flex items-center"><Building size={28} className="mr-3 text-indigo-500" /> Seller Details</h3>
@@ -149,7 +267,11 @@ const SellerDetailsModal = ({ seller, onClose }) => {
                 </div>
                 <div className="space-y-2 p-4 rounded-xl border border-gray-200 bg-gray-50 col-span-full">
                     <p className="text-gray-500 font-semibold text-sm">Address</p>
-                    <p className="text-gray-800 text-lg flex items-center"><MapPin size={20} className="mr-2 text-gray-400" />{seller.address}</p>
+                    {/* ✅ FIXED: Now rendering the formatted string */}
+                    <p className="text-gray-800 text-lg flex items-center">
+                        <MapPin size={20} className="mr-2 text-gray-400" />
+                        {addressToDisplay}
+                    </p>
                 </div>
             </div>
         </ModalWrapper>
@@ -169,7 +291,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
                 </div>
                 <div className="bg-gray-50 p-4 rounded-xl shadow-inner">
                     <p className="text-sm text-gray-500">Total Amount</p>
-                    <p className="font-bold text-green-600 text-xl flex items-center justify-center"><DollarSign size={20} className="mr-1" />{order.totalAmount}</p>
+                    <p className="font-bold text-green-600 text-xl flex items-center justify-center">₹ {order.totalAmount}</p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-xl shadow-inner">
                     <p className="text-sm text-gray-500">Official Status</p>
@@ -208,9 +330,9 @@ const OrderDetailsModal = ({ order, onClose }) => {
                             <img src={item.imageUrl} alt={item.name} className="w-12 h-12 rounded-lg object-cover" />
                             <div className="flex-1">
                                 <p className="font-semibold text-gray-900">{item.name}</p>
-                                <p className="text-sm text-gray-500">Qty: {item.quantity} | Price: ${item.price}</p>
+                                <p className="text-sm text-gray-500">Qty: {item.quantity} | Price: ₹{item.price}</p>
                             </div>
-                            <p className="font-bold text-gray-900">${item.quantity * item.price}</p>
+                            <p className="font-bold text-gray-900">₹{item.quantity * item.price}</p>
                         </li>
                     ))}
                 </ul>
@@ -639,7 +761,7 @@ export default function Order() {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 max-w-[100px] truncate">{order._id}</td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 max-w-[140px] truncate">
                                                 <div className="flex items-center gap-2">
-                                                    <span>{order.user.firstName} {order.user.lastName}</span>
+                                                    <span>{order.user.name} {order.user.lastName}</span>
                                                     <button
                                                         onClick={() => { setSelectedCustomer(order.user); setShowCustomerDetailsModal(true); }}
                                                         className="text-blue-500 hover:text-blue-700 transition"
@@ -671,7 +793,7 @@ export default function Order() {
                                                     {order.status}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">${order.totalAmount}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">₹{order.totalAmount}</td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-center space-x-2 flex items-center justify-center">
                                                 {/* View Details Button */}
                                                 <motion.button
