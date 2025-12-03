@@ -22,6 +22,7 @@ import {
     ChevronRight,
     Eye,
     Zap, // Added for status update visibility
+    Tag // Added for promo code
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -108,7 +109,6 @@ const CustomerDetailsModal = ({ customer, onClose }) => {
     if (!customer) return null;
 
     // Helper to format the date
-    // NOTE: dateOfBirth is missing in the data, so it will fall back to 'N/A'
     const formattedDOB = customer.dateOfBirth
         ? new Date(customer.dateOfBirth).toLocaleDateString()
         : 'N/A';
@@ -156,7 +156,6 @@ const CustomerDetailsModal = ({ customer, onClose }) => {
                         <Smartphone size={20} className="mr-2 text-gray-400" />{customer.mobile}
                     </p>
                 </div>
-                {/* Note: AlternatePhone is missing in your data, displays N/A */}
                 <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50 col-span-1">
                     <p className="text-gray-500 font-semibold text-sm">Alternate Phone</p>
                     <p className="text-gray-800 text-lg flex items-center">
@@ -165,7 +164,6 @@ const CustomerDetailsModal = ({ customer, onClose }) => {
                 </div>
 
                 {/* Personal & Professional Details */}
-                {/* Note: DateOfBirth, Occupation, Company are missing in your data, display N/A */}
                 <div className="space-y-1 p-4 rounded-xl border border-gray-200 bg-gray-50">
                     <p className="text-gray-500 font-semibold text-sm">Date of Birth</p>
                     <p className="text-gray-800 text-lg flex items-center">
@@ -238,7 +236,7 @@ const CustomerDetailsModal = ({ customer, onClose }) => {
 const SellerDetailsModal = ({ seller, onClose }) => {
     if (!seller) return null;
 
-    // ✅ FIX: Check if seller.address is an object and format it.
+    // FIX: Check if seller.address is an object and format it.
     const formattedAddress = 
         (typeof seller.address === 'object' && seller.address !== null)
             ? `${seller.address.street || ''}, ${seller.address.city || ''}, ${seller.address.state || ''} - ${seller.address.pincode || ''}`
@@ -267,7 +265,7 @@ const SellerDetailsModal = ({ seller, onClose }) => {
                 </div>
                 <div className="space-y-2 p-4 rounded-xl border border-gray-200 bg-gray-50 col-span-full">
                     <p className="text-gray-500 font-semibold text-sm">Address</p>
-                    {/* ✅ FIXED: Now rendering the formatted string */}
+                    {/* FIXED: Now rendering the formatted string */}
                     <p className="text-gray-800 text-lg flex items-center">
                         <MapPin size={20} className="mr-2 text-gray-400" />
                         {addressToDisplay}
@@ -280,14 +278,38 @@ const SellerDetailsModal = ({ seller, onClose }) => {
 
 const OrderDetailsModal = ({ order, onClose }) => {
     if (!order) return null;
+
+    const summary = order.billingSummary || {};
+
+    // Helper function for rendering billing rows
+    const BillingRow = ({ label, value, isDiscount = false, isNet = false, isTotal = false }) => (
+        <div className={`flex justify-between items-center py-2 ${isNet ? 'font-bold border-t border-gray-300' : ''} ${isTotal ? 'font-extrabold text-xl text-green-700 border-t-2 border-gray-400 pt-3 mt-2' : 'text-gray-700'}`}>
+            <span className={isDiscount ? 'text-red-600' : ''}>{label}</span>
+            <span className={isDiscount ? 'text-red-600' : 'text-gray-900'}>
+                {isDiscount ? '- ' : ''}₹{parseFloat(value).toFixed(2)}
+            </span>
+        </div>
+    );
+    
+    // Fallback/direct access to new DB fields
+    const subtotal = order.subtotalAmount || summary['Subtotal (Product Value)'] || 0;
+    const actualDeliveryCost = order.actualDeliveryCost || summary['Actual Delivery Cost'] || 0;
+    const productValueDiscount = order.productValueDiscount || summary['Product Value Discount (5%)'] || 0;
+    const netDeliveryCharge = order.netDeliveryCharge || summary['Net Delivery Charge'] || 0;
+    const promoDiscount = order.promoDiscountAmount || summary['Promo Code Discount'] || 0;
+    const platformFee = order.platformFee || summary['Platform Fee'] || 0;
+    const smileFundDonation = order.smileFundDonation || summary['Smile Fund Donation'] || 0;
+
+
     return (
-        <ModalWrapper onClose={onClose}>
+        <ModalWrapper onClose={onClose} maxWidth="max-w-5xl">
             <h3 className="text-3xl font-bold text-gray-900 border-b-2 pb-4 mb-6 flex items-center"><Package size={28} className="mr-3 text-blue-500" /> Order Details</h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center border-b pb-6 mb-6">
+            {/* HEADER / STATUS SUMMARY */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center border-b pb-6 mb-6">
                 <div className="bg-gray-50 p-4 rounded-xl shadow-inner">
                     <p className="text-sm text-gray-500">Order ID</p>
-                    <p className="font-bold text-gray-900 truncate">{order._id}</p>
+                    <p className="font-bold text-gray-900 truncate text-sm">{order._id}</p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-xl shadow-inner">
                     <p className="text-sm text-gray-500">Total Amount</p>
@@ -299,6 +321,12 @@ const OrderDetailsModal = ({ order, onClose }) => {
                         {order.status}
                     </span>
                 </div>
+                <div className="bg-gray-50 p-4 rounded-xl shadow-inner">
+                    <p className="text-sm text-gray-500">Order Date</p>
+                    <p className="font-bold text-gray-900 text-sm">
+                        {new Date(order.createdAt).toLocaleDateString()}
+                    </p>
+                </div>
                 {/* Display seller requested status if pending approval */}
                 {order.adminApprovalStatus === 'Awaiting Approval' && (
                     <div className="bg-red-100 p-4 rounded-xl shadow-inner col-span-full border-red-300 border">
@@ -309,50 +337,100 @@ const OrderDetailsModal = ({ order, onClose }) => {
                 )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="bg-gray-50 p-4 rounded-xl shadow-inner border border-gray-200">
-                    <h4 className="text-xl font-bold text-gray-800 flex items-center mb-2"><User size={20} className="mr-2 text-blue-500" /> Customer</h4>
-                    <p className="font-semibold text-gray-900">{order.user.firstName} {order.user.lastName}</p>
-                    <p className="text-sm text-gray-500">{order.user.email}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                {/* COLUMN 1: CUSTOMER, SELLER, ADDRESS */}
+                <div className="md:col-span-1 space-y-6">
+                    <div className="bg-gray-50 p-4 rounded-xl shadow-inner border border-gray-200">
+                        <h4 className="text-xl font-bold text-gray-800 flex items-center mb-2"><User size={20} className="mr-2 text-blue-500" /> Customer</h4>
+                        {/* FIX: Use Optional Chaining for customer names */}
+                        <p className="font-semibold text-gray-900">{order.user?.firstName || order.user?.name || 'N/A'} {order.user?.lastName || ''}</p>
+                        <p className="text-sm text-gray-500">{order.user?.email || 'N/A'}</p>
+                        <p className="text-sm text-gray-500">{order.user?.mobile || 'N/A'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-xl shadow-inner border border-gray-200">
+                        <h4 className="text-xl font-bold text-gray-800 flex items-center mb-2"><Building size={20} className="mr-2 text-indigo-500" /> Seller</h4>
+                        {/* FIX: Use Optional Chaining for seller details */}
+                        <p className="font-semibold text-gray-900">{order.seller?.companyName || 'N/A'}</p>
+                        <p className="text-sm text-gray-500">{order.seller?.email || 'N/A'}</p>
+                        <p className="text-sm text-gray-500">{order.seller?.mobile || 'N/A'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-xl shadow-inner border border-gray-200">
+                        <h4 className="text-xl font-bold text-gray-800 flex items-center mb-2"><MapPin size={20} className="mr-2 text-red-500" /> Shipping Address</h4>
+                        <address className="not-italic text-gray-700 text-sm">
+                            <p className="font-semibold">{order.shippingAddress.name}</p>
+                            <p>{order.shippingAddress.address1}</p>
+                            {order.shippingAddress.address2 && <p>{order.shippingAddress.address2}</p>}
+                            <p>{order.shippingAddress.city}, {order.shippingAddress.postalCode}</p>
+                            <p>{order.shippingAddress.country}</p>
+                            <p>Phone: {order.shippingAddress.phone}</p>
+                        </address>
+                    </div>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-xl shadow-inner border border-gray-200">
-                    <h4 className="text-xl font-bold text-gray-800 flex items-center mb-2"><Building size={20} className="mr-2 text-indigo-500" /> Seller</h4>
-                    <p className="font-semibold text-gray-900">{order.seller.companyName}</p>
-                    <p className="text-sm text-gray-500">{order.seller.email}</p>
+
+                {/* COLUMN 2: ORDER ITEMS */}
+                <div className="md:col-span-1 bg-gray-50 p-4 rounded-xl shadow-inner border border-gray-200 max-h-[400px] overflow-y-auto">
+                    <h4 className="text-xl font-bold text-gray-800 flex items-center mb-2 sticky top-0 bg-gray-50/90 z-10 py-1"><ShoppingCart size={20} className="mr-2 text-green-500" /> Items ({order.items.length})</h4>
+                    <ul className="divide-y divide-gray-200">
+                        {order.items.map((item, index) => (
+                            <li key={index} className="flex items-start space-x-4 py-3">
+                                <img src={item.imageUrl} alt={item.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-gray-900 truncate">{item.name}</p>
+                                    <p className="text-sm text-gray-500">
+                                        Qty: {item.quantity} | Unit Price: ₹{item.price.toFixed(2)}
+                                    </p>
+                                </div>
+                                <p className="font-bold text-gray-900 flex-shrink-0">₹{(item.quantity * item.price).toFixed(2)}</p>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
-            </div>
-            
-            <div className="bg-gray-50 p-4 rounded-xl shadow-inner border border-gray-200 mb-6">
-                <h4 className="text-xl font-bold text-gray-800 flex items-center mb-2"><ShoppingCart size={20} className="mr-2 text-green-500" /> Order Items ({order.items.length})</h4>
-                <ul className="divide-y divide-gray-200">
-                    {order.items.map((item, index) => (
-                        <li key={index} className="flex items-center space-x-4 py-3">
-                            <img src={item.imageUrl} alt={item.name} className="w-12 h-12 rounded-lg object-cover" />
-                            <div className="flex-1">
-                                <p className="font-semibold text-gray-900">{item.name}</p>
-                                <p className="text-sm text-gray-500">Qty: {item.quantity} | Price: ₹{item.price}</p>
+
+                {/* COLUMN 3: BILLING SUMMARY (Detailed Financial Breakdown) */}
+                <div className="md:col-span-1 bg-gray-50 p-4 rounded-xl shadow-inner border border-gray-200">
+                    <h4 className="text-xl font-bold text-gray-800 flex items-center mb-4"><DollarSign size={20} className="mr-2 text-green-500" /> Financial Summary</h4>
+                    
+                    <div className="text-sm space-y-1">
+                        <BillingRow label="Product Subtotal" value={subtotal} />
+                        
+                        {/* Delivery Details */}
+                        <div className="py-2 mt-2">
+                            <h5 className="font-semibold text-gray-600 mb-1 border-b border-dashed">Delivery Calculation</h5>
+                            <BillingRow label="Actual Delivery Cost (Pre-Discount)" value={actualDeliveryCost} />
+                            {productValueDiscount > 0 && <BillingRow label="Product Value Discount (5%)" value={productValueDiscount} isDiscount />}
+                            <BillingRow label="Net Delivery Charge" value={netDeliveryCharge} isNet />
+                        </div>
+                        
+                        {/* Promo Discount */}
+                        {promoDiscount > 0 && (
+                            <div className="py-2 border-t border-gray-300">
+                                <BillingRow label={`Promo Discount (${order.promoCode || 'N/A'})`} value={promoDiscount} isDiscount />
                             </div>
-                            <p className="font-bold text-gray-900">₹{item.quantity * item.price}</p>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-            
-            <div className="bg-gray-50 p-4 rounded-xl shadow-inner border border-gray-200">
-                <h4 className="text-xl font-bold text-gray-800 flex items-center mb-2"><MapPin size={20} className="mr-2 text-red-500" /> Shipping Address</h4>
-                <address className="not-italic text-gray-700">
-                    <p className="font-semibold">{order.shippingAddress.name}</p>
-                    <p>{order.shippingAddress.address1}</p>
-                    <p>{order.shippingAddress.city}, {order.shippingAddress.postalCode}</p>
-                    <p>{order.shippingAddress.country}</p>
-                    <p>Phone: {order.shippingAddress.phone}</p>
-                </address>
+                        )}
+                        
+                        {/* Fees & Donation */}
+                        <div className="py-2 border-t border-gray-300">
+                            <BillingRow label="Platform Fee" value={platformFee} />
+                            <BillingRow label="Smile Fund Donation" value={smileFundDonation} />
+                        </div>
+
+                        {/* Final Total */}
+                        <BillingRow label="TOTAL AMOUNT" value={order.totalAmount} isTotal />
+                    </div>
+
+                    {/* Payment Status (Simplified) */}
+                    <p className={`mt-4 text-sm font-semibold p-2 rounded text-center ${STATUS_COLORS[order.paymentMethod] ? STATUS_COLORS[order.paymentMethod].replace('200', '100').replace('800', '900') : 'bg-gray-100 text-gray-600'}`}>
+                        Payment Method: {order.paymentMethod || 'N/A'}
+                        {order.cfOrderId && <span className='block text-xs font-normal opacity-80'>Order ID: {order.cfOrderId}</span>}
+                    </p>
+                </div>
             </div>
         </ModalWrapper>
     );
 };
 
-// --- NEW Status Update Modal ---
+// --- NEW Status Update Modal (Unchanged) ---
 const StatusUpdateModal = ({ order, onClose, onUpdate }) => {
     const [newStatus, setNewStatus] = useState(order.status);
     const [isUpdating, setIsUpdating] = useState(false);
@@ -540,11 +618,13 @@ export default function Order() {
         if (!orders) return [];
         return orders.filter((order) => {
             // Customer name filter
+            // FIX: Use Optional Chaining for customer name access in filter
             const customerName = `${order.user?.firstName || ''} ${order.user?.lastName || ''}`.trim().toLowerCase();
             if (filter.customerName && !customerName.includes(filter.customerName.toLowerCase())) {
                 return false;
             }
             // Seller name filter
+            // FIX: Use Optional Chaining for seller name access in filter
             if (filter.sellerName && !order.seller?.companyName.toLowerCase().includes(filter.sellerName.toLowerCase())) {
                 return false;
             }
@@ -581,17 +661,28 @@ export default function Order() {
     const handleDownloadExcel = () => {
         const dataForExport = filteredOrders.map(order => ({
             "Order ID": order._id,
-            "Customer Name": `${order.user.firstName} ${order.user.lastName}`,
-            "Customer Email": order.user.email,
-            "Seller Name": order.seller.companyName,
-            "Seller Email": order.seller.email,
+            // FIX: Use optional chaining for safe access
+            "Customer Name": `${order.user?.firstName || order.user?.name || ''} ${order.user?.lastName || ''}`.trim(),
+            "Customer Email": order.user?.email || 'N/A',
+            "Seller Name": order.seller?.companyName || 'N/A',
+            "Seller Email": order.seller?.email || 'N/A',
             "Total Amount": order.totalAmount,
             "Official Status": order.status,
             "Seller Requested Status": order.sellerStatus,
             "Approval Status": order.adminApprovalStatus,
             "Order Date": new Date(order.createdAt).toLocaleString(),
-            "Shipping Address": `${order.shippingAddress.address1}, ${order.shippingAddress.city}, ${order.shippingAddress.postalCode}, ${order.shippingAddress.country}`,
-            "Items": order.items.map(item => `${item.name} (x${item.quantity})`).join(', ')
+            "Shipping Address": `${order.shippingAddress?.address1 || ''}, ${order.shippingAddress?.city || ''}, ${order.shippingAddress?.postalCode || ''}, ${order.shippingAddress?.country || ''}`,
+            "Items": order.items.map(item => `${item.name} (x${item.quantity})`).join(', '),
+            
+            // --- NEW FINANCIAL FIELDS FOR EXPORT ---
+            "Product Subtotal": order.subtotalAmount || order.billingSummary?.['Subtotal (Product Value)'],
+            "Actual Delivery Cost": order.actualDeliveryCost || order.billingSummary?.['Actual Delivery Cost'],
+            "Product Value Discount (5%)": order.productValueDiscount || order.billingSummary?.['Product Value Discount (5%)'],
+            "Net Delivery Charge": order.netDeliveryCharge || order.billingSummary?.['Net Delivery Charge'],
+            "Promo Code": order.promoCode || 'N/A',
+            "Promo Discount": order.promoDiscountAmount || order.billingSummary?.['Promo Code Discount'],
+            "Platform Fee": order.platformFee || order.billingSummary?.['Platform Fee'],
+            "Smile Fund Donation": order.smileFundDonation || order.billingSummary?.['Smile Fund Donation'],
         }));
         const worksheet = XLSX.utils.json_to_sheet(dataForExport);
         const workbook = XLSX.utils.book_new();
@@ -761,7 +852,8 @@ export default function Order() {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 max-w-[100px] truncate">{order._id}</td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 max-w-[140px] truncate">
                                                 <div className="flex items-center gap-2">
-                                                    <span>{order.user.name} {order.user.lastName}</span>
+                                                    {/* FIX APPLIED HERE: Safely access user properties */}
+                                                    <span>{order.user?.firstName || order.user?.name } {order.user?.lastName || ''|| order.shippingAddress.name}</span>
                                                     <button
                                                         onClick={() => { setSelectedCustomer(order.user); setShowCustomerDetailsModal(true); }}
                                                         className="text-blue-500 hover:text-blue-700 transition"
@@ -773,7 +865,8 @@ export default function Order() {
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 max-w-[140px] truncate">
                                                 <div className="flex items-center gap-2">
-                                                    <span>{order.seller.companyName}</span>
+                                                    {/* FIX APPLIED HERE: Safely access seller companyName */}
+                                                    <span>{order.seller?.companyName || 'N/A'}</span>
                                                     <button
                                                         onClick={() => { setSelectedSeller(order.seller); setShowSellerDetailsModal(true); }}
                                                         className="text-indigo-500 hover:text-indigo-700 transition"
@@ -793,7 +886,7 @@ export default function Order() {
                                                     {order.status}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">₹{order.totalAmount}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">₹{order.totalAmount ? parseFloat(order.totalAmount).toFixed(2) : '0.00'}</td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-center space-x-2 flex items-center justify-center">
                                                 {/* View Details Button */}
                                                 <motion.button

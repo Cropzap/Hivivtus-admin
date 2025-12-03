@@ -28,6 +28,7 @@ const menuItems = [
   { name: 'Seller Support', icon: Ticket, roles: ['admin'] },
   { name: 'Add Category', icon: List, roles: ['admin'] },
   { name: 'Add Banner', icon: List, roles: ['admin'] },
+  { name: 'Add Promocode', icon: List, roles: ['admin'] },
   { name: 'Add Admin', icon: UserPlus, roles: ['admin'] },
 ];
 

@@ -9,6 +9,7 @@ import AdminDashboard from './AdminDashboard';
 import App from './AddCategory';
 import AdminBanner from './AdminBanner';
 import AdminProductReview from './AdminProductReview';
+import AdminPromoCode from './AdminPromoCode';
 
 // Main content area component
 // Accept authToken, userRole, and onAuthError as props
@@ -46,6 +47,8 @@ export default function MainContent({ activeMenuItem, setActiveMenuItem, userRol
         return <SellerSupportTicket userRole={userRole} authToken={authToken} />;
       case 'Add Banner':
         return <AdminBanner  userRole={userRole} authToken={authToken}/>;
+      case 'Add Promocode':
+        return <AdminPromoCode  userRole={userRole} authToken={authToken}/>;
       // Add more cases for other menu items here
       default:
         return (
